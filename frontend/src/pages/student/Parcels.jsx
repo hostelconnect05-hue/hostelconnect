@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser } from '../../utils/auth';
+import { API_BASE_URL } from '../../utils/config.js';
 import '../../styles/student-parcels.css';
 
 const Parcels = () => {
@@ -27,7 +28,7 @@ const Parcels = () => {
     try {
       console.log('Fetching parcels for user_id:', user.userId);
       const response = await fetch(
-        `http://localhost:5000/api/student/parcels/${user.userId}`
+        `${API_BASE_URL}/api/student/parcels/${user.userId}`
       );
       const data = await response.json();
       

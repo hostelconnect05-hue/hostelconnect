@@ -1,0 +1,28 @@
+version: '3.8'
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - MYSQL_HOST=db
+      - MYSQL_USER=user
+      - MYSQL_PASSWORD=password
+      - MYSQL_DATABASE=hostelconnect
+    depends_on:
+      - db
+  frontend:
+    build: ./frontend
+    ports:
+      - "80:80"
+  db:
+    image: mysql:8.0
+    environment:
+      - MYSQL_DATABASE=hostelconnect
+      - MYSQL_USER=user
+      - MYSQL_PASSWORD=password
+      - MYSQL_ROOT_PASSWORD=rootpassword
+    volumes:
+      - db_data:/var/lib/mysql
+volumes:
+  db_data:

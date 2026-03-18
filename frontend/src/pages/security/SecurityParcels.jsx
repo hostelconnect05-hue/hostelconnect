@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { API_BASE_URL } from '../../utils/config.js';
 import '../../styles/security-dashboard.css';
 
 const SecurityParcels = () => {
@@ -71,7 +72,7 @@ const SecurityParcels = () => {
   const fetchParcels = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:5000/api/security/parcels');
+      const response = await fetch(`${API_BASE_URL}/api/security/parcels`);
       const data = await response.json();
       if (data.success) {
         setParcels(data.data || []);
@@ -92,7 +93,7 @@ const SecurityParcels = () => {
     setLoading(true);
     try {
       const response = await fetch(
-        `http://localhost:5000/api/security/parcels?roll_number=${encodeURIComponent(searchRollNumber.trim())}`
+        `${API_BASE_URL}/api/security/parcels?roll_number=${encodeURIComponent(searchRollNumber.trim())}`
       );
       const data = await response.json();
       if (data.success) {
@@ -114,7 +115,7 @@ const SecurityParcels = () => {
     if (actionLoading[actionKey]) return;
     setActionLoading((prev) => ({ ...prev, [actionKey]: true }));
     try {
-      const response = await fetch(`http://localhost:5000/api/security/parcel/${id}/notify`, {
+      const response = await fetch(`${API_BASE_URL}/api/security/parcel/${id}/notify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notified_at: new Date().toISOString() })
@@ -141,7 +142,7 @@ const SecurityParcels = () => {
     if (actionLoading[actionKey]) return;
     setActionLoading((prev) => ({ ...prev, [actionKey]: true }));
     try {
-      const response = await fetch(`http://localhost:5000/api/security/parcel/${id}/collect`, {
+      const response = await fetch(`${API_BASE_URL}/api/security/parcel/${id}/collect`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ collected_at: new Date().toISOString() })
@@ -188,7 +189,7 @@ const SecurityParcels = () => {
 
     setAddingParcel(true);
     try {
-      const response = await fetch('http://localhost:5000/api/security/parcel', {
+      const response = await fetch(`${API_BASE_URL}/api/security/parcel`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newParcel)

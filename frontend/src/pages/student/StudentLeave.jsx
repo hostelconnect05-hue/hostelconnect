@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getCurrentUser } from '../../utils/auth';
+import { API_BASE_URL } from '../../utils/config';
 import '../../styles/student-leave.css';
 
 const StudentLeave = () => {
@@ -41,7 +42,7 @@ const StudentLeave = () => {
       try {
         if (!currentUser?.userId) return;
         
-        const res = await fetch(`http://localhost:5000/api/student/leaves/${currentUser.userId}`);
+        const res = await fetch(`${API_BASE_URL}/api/student/leaves/${currentUser.userId}`);
         const data = await res.json();
         if (data.success && Array.isArray(data.data)) {
           setLeaves(data.data);
@@ -108,7 +109,7 @@ const StudentLeave = () => {
 
     setSubmitting(true);
     try {
-      const res = await fetch('http://localhost:5000/api/student/leave', {
+      const res = await fetch(`${API_BASE_URL}/api/student/leave`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

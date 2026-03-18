@@ -1,12 +1,19 @@
-import mysql.connector
+import os
 import sys
+import mysql.connector
+from dotenv import load_dotenv
+
+# Load environment variables from backend/.env (local development)
+dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
+if os.path.exists(dotenv_path):
+    load_dotenv(dotenv_path)
 
 # Database configuration
-db_config = {
-    'host': 'localhost',
-    'user': 'root',
-    'password': 'navaroj@1923132',
-    'database': 'hostelconnect_db'
+DB_CONFIG = {
+    'host': os.getenv('DB_HOST') or os.getenv('MYSQL_HOST') or 'localhost',
+    'user': os.getenv('DB_USER') or os.getenv('MYSQL_USER') or 'root',
+    'password': os.getenv('DB_PASSWORD') or os.getenv('MYSQL_PASSWORD') or '',
+    'database': os.getenv('DB_NAME') or os.getenv('MYSQL_DATABASE') or 'hostelconnect_db',
 }
 
 def run_migration():

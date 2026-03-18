@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getAuthHeaders, getCurrentUser } from '../../utils/auth';
+import { API_BASE_URL } from '../../utils/config.js';
 import '../../styles/security-dashboard.css';
 
 const SecurityVisitors = () => {
@@ -45,7 +46,7 @@ const SecurityVisitors = () => {
 
   const fetchStudents = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/security/students', {
+      const response = await fetch(`${API_BASE_URL}/api/security/students`, {
         headers: getAuthHeaders()
       });
       const data = await response.json();
@@ -61,7 +62,7 @@ const SecurityVisitors = () => {
     setLoading(true);
     try {
       // Fetch active visitors
-      const activeRes = await fetch('http://localhost:5000/api/security/visitors/active');
+      const activeRes = await fetch(`${API_BASE_URL}/api/security/visitors/active`);
       const activeData = await activeRes.json();
       if (activeData.success && Array.isArray(activeData.data)) {
         const formattedActive = activeData.data.map((v) => ({
@@ -81,7 +82,7 @@ const SecurityVisitors = () => {
       }
 
       // Fetch visitor history
-      const historyRes = await fetch('http://localhost:5000/api/security/visitors/history');
+      const historyRes = await fetch(`${API_BASE_URL}/api/security/visitors/history`);
       const historyData = await historyRes.json();
       if (historyData.success && Array.isArray(historyData.data)) {
         const formattedHistory = historyData.data.map((v) => {
@@ -123,7 +124,7 @@ const SecurityVisitors = () => {
     if (checkingOutId === id) return;
     setCheckingOutId(id);
     try {
-      const response = await fetch(`http://localhost:5000/api/security/visitor/${id}/checkout`, {
+      const response = await fetch(`${API_BASE_URL}/api/security/visitor/${id}/checkout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -199,7 +200,7 @@ const SecurityVisitors = () => {
 
     setAddingVisitor(true);
     try {
-      const response = await fetch('http://localhost:5000/api/security/visitor/entry', {
+      const response = await fetch(`${API_BASE_URL}/api/security/visitor/entry`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../../components/Navbar';
+import { API_BASE_URL } from '../../utils/config';
 import '../../styles/registration.css';
 
 const StudentRegistration = () => {
@@ -46,8 +47,8 @@ const StudentRegistration = () => {
     const fetchAcademicSettings = async () => {
       try {
         const [collegesRes, branchesRes] = await Promise.all([
-          fetch('http://localhost:5000/api/settings/colleges'),
-          fetch('http://localhost:5000/api/settings/branches')
+          fetch(`${API_BASE_URL}/api/settings/colleges`),
+          fetch(`${API_BASE_URL}/api/settings/branches`)
         ]);
         const [collegesData, branchesData] = await Promise.all([
           collegesRes.json(),
@@ -85,7 +86,7 @@ const StudentRegistration = () => {
     const fetchHostelBlocks = async () => {
       setLoadingBlocks(true);
       try {
-        const response = await fetch(`http://localhost:5000/api/blocks?gender=${selectedGender}`);
+        const response = await fetch(`${API_BASE_URL}/api/blocks?gender=${selectedGender}`);
         const data = await response.json();
 
         if (data.success && Array.isArray(data.data)) {
@@ -130,7 +131,7 @@ const StudentRegistration = () => {
       const formDataForUpload = new FormData();
       formDataForUpload.append('file', file);
 
-      const response = await fetch('http://localhost:5000/api/upload/payment-proof', {
+      const response = await fetch(`${API_BASE_URL}/api/upload/payment-proof`, {
         method: 'POST',
         body: formDataForUpload,
       });
@@ -271,7 +272,7 @@ const StudentRegistration = () => {
         ? formData.collegeOther.trim()
         : formData.collegeName;
 
-      const response = await fetch('http://localhost:5000/api/student/register', {
+      const response = await fetch(`${API_BASE_URL}/api/student/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

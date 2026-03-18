@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import StudentLayout from '../../components/StudentLayout';
 import { getCurrentUser } from '../../utils/auth';
+import { API_BASE_URL } from '../../utils/config';
 import '../../styles/student-complaints.css';
 
 const StudentComplaints = () => {
@@ -53,7 +54,7 @@ const StudentComplaints = () => {
     try {
       if (!currentUser?.userId) return;
       
-      const res = await fetch(`http://localhost:5000/api/student/complaints/${currentUser.userId}`);
+      const res = await fetch(`${API_BASE_URL}/api/student/complaints/${currentUser.userId}`);
       const data = await res.json();
       if (data.success && Array.isArray(data.data)) {
         setComplaints(data.data);
@@ -83,7 +84,7 @@ const StudentComplaints = () => {
 
     setSubmitting(true);
     try {
-      const res = await fetch('http://localhost:5000/api/student/complaint', {
+      const res = await fetch(`${API_BASE_URL}/api/student/complaint`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../../utils/config.js';
 import '../../styles/student-mess.css';
 
 const MessMenu = () => {
@@ -67,7 +68,7 @@ const MessMenu = () => {
 
   const fetchMessMenu = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/mess/menu');
+      const response = await fetch(`${API_BASE_URL}/api/mess/menu`);
       const data = await response.json();
       
       if (data.success && data.data) {

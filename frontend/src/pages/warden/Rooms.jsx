@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import OccupancyAnalytics from '../../components/OccupancyAnalytics';
 import { getCurrentUser } from '../../utils/auth';
+import { API_BASE_URL } from '../../utils/config';
 import '../../styles/warden-rooms.css';
 
 const Rooms = () => {
@@ -28,13 +29,13 @@ const Rooms = () => {
       setLoading(true);
       try {
         // Fetch hostel blocks
-        const blocksRes = await fetch('http://localhost:5000/api/warden/hostel-blocks', {
+        const blocksRes = await fetch(`${API_BASE_URL}/api/warden/hostel-blocks`, {
           headers: authOnlyHeaders()
         });
         const blocksData = await blocksRes.json();
         
         // Fetch all rooms
-        const roomsRes = await fetch('http://localhost:5000/api/rooms/all');
+        const roomsRes = await fetch(`${API_BASE_URL}/api/rooms/all`);
         const roomsData = await roomsRes.json();
         
         if (blocksData.success && Array.isArray(blocksData.data)) {
@@ -303,7 +304,7 @@ const Rooms = () => {
 
     setSavingCapacity(true);
     try {
-      const response = await fetch(`http://localhost:5000/api/warden/rooms/${selectedRoom.id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/warden/rooms/${selectedRoom.id}`, {
         method: 'PUT',
         headers: authHeaders(),
         body: JSON.stringify({
@@ -338,7 +339,7 @@ const Rooms = () => {
   const handleDeleteRoom = async () => {
     setDeletingRoom(true);
     try {
-      const response = await fetch(`http://localhost:5000/api/warden/rooms/${selectedRoom.id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/warden/rooms/${selectedRoom.id}`, {
         method: 'DELETE',
         headers: authOnlyHeaders()
       });
@@ -367,7 +368,7 @@ const Rooms = () => {
     const fetchRoomStudents = async () => {
       setStudentsLoading(true);
       try {
-        const response = await fetch(`http://localhost:5000/api/warden/rooms/${selectedRoom.id}/students`, {
+        const response = await fetch(`${API_BASE_URL}/api/warden/rooms/${selectedRoom.id}/students`, {
           headers: authOnlyHeaders()
         });
         const data = await response.json();
@@ -401,7 +402,7 @@ const Rooms = () => {
     const fetchRoomChangeRequests = async () => {
       setRequestsLoading(true);
       try {
-        const response = await fetch(`http://localhost:5000/api/warden/rooms/${selectedRoom.id}/change-requests`, {
+        const response = await fetch(`${API_BASE_URL}/api/warden/rooms/${selectedRoom.id}/change-requests`, {
           headers: authOnlyHeaders()
         });
         const data = await response.json();

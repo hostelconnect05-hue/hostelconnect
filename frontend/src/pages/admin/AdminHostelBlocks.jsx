@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import ContextActionModal from '../../components/ContextActionModal';
+import { API_BASE_URL } from '../../utils/config.js';
 import '../../styles/admin-hostel-blocks.css';
 
 const AdminHostelBlocks = () => {
@@ -54,7 +55,7 @@ const AdminHostelBlocks = () => {
     setLoading(true);
     try {
       // Fetch hostel blocks
-      const blocksRes = await fetch('http://localhost:5000/api/admin/hostel-blocks');
+      const blocksRes = await fetch(`${API_BASE_URL}/api/admin/hostel-blocks`);
       const blocksData = await blocksRes.json();
       
       if (blocksData.success && Array.isArray(blocksData.data)) {
@@ -105,7 +106,7 @@ const AdminHostelBlocks = () => {
     setLoading(true);
     
     try {
-      const response = await fetch(`http://localhost:5000/api/admin/rooms/${block.id}`);
+      const response = await fetch(`${API_BASE_URL}/api/admin/rooms/${block.id}`);
       const data = await response.json();
       
       if (data.success) {
@@ -147,7 +148,7 @@ const AdminHostelBlocks = () => {
     try {
       if (isAddingRoom) {
         // Add new room
-        const response = await fetch(`http://localhost:5000/api/admin/rooms`, {
+        const response = await fetch(`${API_BASE_URL}/api/admin/rooms`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -171,7 +172,7 @@ const AdminHostelBlocks = () => {
         }
       } else {
         // Update existing room
-        const response = await fetch(`http://localhost:5000/api/admin/rooms/${editingRoom.id}`, {
+        const response = await fetch(`${API_BASE_URL}/api/admin/rooms/${editingRoom.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(roomFormData)
@@ -211,7 +212,7 @@ const AdminHostelBlocks = () => {
 
     setDeletingRoomId(pendingRoomDelete.id);
     try {
-      const response = await fetch(`http://localhost:5000/api/admin/rooms/${pendingRoomDelete.id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/rooms/${pendingRoomDelete.id}`, {
         method: 'DELETE'
       });
 
@@ -246,7 +247,7 @@ const AdminHostelBlocks = () => {
     setSubmitting(true);
     try {
       if (isCreateMode) {
-        const blockRes = await fetch('http://localhost:5000/api/admin/hostel-blocks', {
+        const blockRes = await fetch(`${API_BASE_URL}/api/admin/hostel-blocks`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -271,7 +272,7 @@ const AdminHostelBlocks = () => {
         setIsCreateMode(false);
       } else if (selectedBlock) {
         // Update block details
-        const blockRes = await fetch(`http://localhost:5000/api/admin/hostel-blocks/${selectedBlock.id}`, {
+        const blockRes = await fetch(`${API_BASE_URL}/api/admin/hostel-blocks/${selectedBlock.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -290,7 +291,7 @@ const AdminHostelBlocks = () => {
         }
 
         // Update rooms in block
-        const roomsRes = await fetch(`http://localhost:5000/api/admin/rooms/bulk-update`, {
+        const roomsRes = await fetch(`${API_BASE_URL}/api/admin/rooms/bulk-update`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -328,7 +329,7 @@ const AdminHostelBlocks = () => {
 
     setSubmitting(true);
     try {
-      const response = await fetch(`http://localhost:5000/api/admin/hostel-blocks/${pendingBlockDelete.id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/hostel-blocks/${pendingBlockDelete.id}`, {
         method: 'DELETE'
       });
       const data = await response.json();

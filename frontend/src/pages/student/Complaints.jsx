@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import RaiseComplaintModal from '../../components/complaints/RaiseComplaintModal';
 import { getCurrentUser } from '../../utils/auth';
+import { API_BASE_URL } from '../../utils/config.js';
 import '../../styles/student-complaints.css';
 
 const Complaints = () => {
@@ -18,7 +19,7 @@ const Complaints = () => {
       try {
         if (!currentUser?.userId) return;
 
-        const res = await fetch(`http://localhost:5000/api/student/complaints/${currentUser.userId}`);
+        const res = await fetch(`${API_BASE_URL}/api/student/complaints/${currentUser.userId}`);
         const data = await res.json();
 
         if (data.success && Array.isArray(data.data)) {
@@ -35,7 +36,7 @@ const Complaints = () => {
       try {
         if (!currentUser?.userId) return;
 
-        const res = await fetch(`http://localhost:5000/api/student/room/${currentUser.userId}`);
+        const res = await fetch(`${API_BASE_URL}/api/student/room/${currentUser.userId}`);
         const data = await res.json();
 
         if (data.success && data.data?.room) {
@@ -56,7 +57,7 @@ const Complaints = () => {
 
   const handleAddComplaint = async (newComplaintData) => {
     try {
-      const res = await fetch('http://localhost:5000/api/student/complaint', {
+      const res = await fetch(`${API_BASE_URL}/api/student/complaint`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

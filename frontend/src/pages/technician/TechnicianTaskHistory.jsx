@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getCurrentUser } from '../../utils/auth';
+import { API_BASE_URL } from '../../utils/config.js';
 import '../../styles/technician-task-history.css';
 
 const TechnicianTaskHistory = () => {
@@ -20,7 +21,7 @@ const TechnicianTaskHistory = () => {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`http://localhost:5000/api/technician/${currentUser.userId}/complaints`, {
+      const response = await fetch(`${API_BASE_URL}/api/technician/${currentUser.userId}/complaints`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',

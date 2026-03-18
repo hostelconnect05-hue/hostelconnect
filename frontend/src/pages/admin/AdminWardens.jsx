@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import ContextActionModal from '../../components/ContextActionModal';
 import { getAuthHeaders } from '../../utils/auth';
+import { API_BASE_URL } from '../../utils/config';
 import '../../styles/admin-wardens.css';
 
 const AdminWardens = () => {
@@ -18,7 +19,7 @@ const AdminWardens = () => {
 
   const fetchHostelBlocks = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/admin/hostel-blocks', {
+      const res = await fetch(`${API_BASE_URL}/api/admin/hostel-blocks`, {
         headers: getAuthHeaders()
       });
       const data = await res.json();
@@ -34,7 +35,7 @@ const AdminWardens = () => {
   const fetchWardens = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:5000/api/admin/users?role=warden', {
+      const res = await fetch(`${API_BASE_URL}/api/admin/users?role=warden`, {
         headers: getAuthHeaders()
       });
       const data = await res.json();
@@ -171,9 +172,9 @@ const AdminWardens = () => {
 
     setSubmitting(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/user/${selectedWarden.id}/password`, {
+      const res = await fetch(`${API_BASE_URL}/api/admin/user/${selectedWarden.id}/password`, {
         method: 'PUT',
-          headers: getAuthHeaders(true),
+        headers: getAuthHeaders(true),
         body: JSON.stringify({ password: passwordFormData.password })
       });
       
@@ -220,7 +221,7 @@ const AdminWardens = () => {
           block: formData.block
         };
 
-        const res = await fetch(`http://localhost:5000/api/admin/user/${selectedWarden.id}`, {
+        const res = await fetch(`${API_BASE_URL}/api/admin/user/${selectedWarden.id}`, {
           method: 'PUT',
           headers: getAuthHeaders(true),
           body: JSON.stringify(payload)
@@ -245,7 +246,7 @@ const AdminWardens = () => {
           phone: formData.phone || null,
         };
 
-        const res = await fetch('http://localhost:5000/api/admin/user', {
+        const res = await fetch(`${API_BASE_URL}/api/admin/user`, {
           method: 'POST',
           headers: getAuthHeaders(true),
           body: JSON.stringify(payload),
@@ -272,7 +273,7 @@ const AdminWardens = () => {
   const handleToggleStatus = async (warden) => {
     try {
       const newStatus = warden.status === 'active' ? 'inactive' : 'active';
-      const res = await fetch(`http://localhost:5000/api/admin/user/${warden.id}/status`, {
+      const res = await fetch(`${API_BASE_URL}/api/admin/user/${warden.id}/status`, {
         method: 'PUT',
         headers: getAuthHeaders(true),
         body: JSON.stringify({ status: newStatus }),
@@ -293,7 +294,7 @@ const AdminWardens = () => {
   const handleConfirmDelete = async () => {
     setSubmitting(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/user/${selectedWarden.id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/admin/user/${selectedWarden.id}`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       });

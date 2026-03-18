@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAuthHeaders, getCurrentUser } from '../../utils/auth';
+import { API_BASE_URL } from '../../utils/config';
 import '../../styles/warden-dashboard.css';
 
 const WardenDashboard = () => {
@@ -35,7 +36,7 @@ const WardenDashboard = () => {
         setLoading(true);
         
         // Fetch pending outpasses
-        const outpassRes = await fetch('http://localhost:5000/api/warden/outpasses/pending', {
+        const outpassRes = await fetch(`${API_BASE_URL}/api/warden/outpasses/pending`, {
           headers: getAuthHeaders()
         });
         const outpassData = await outpassRes.json();
@@ -45,7 +46,7 @@ const WardenDashboard = () => {
         }
         
         // Fetch recent activities
-        const activitiesRes = await fetch('http://localhost:5000/api/warden/recent-activities', {
+        const activitiesRes = await fetch(`${API_BASE_URL}/api/warden/recent-activities`, {
           headers: getAuthHeaders()
         });
         const activitiesData = await activitiesRes.json();
@@ -53,7 +54,7 @@ const WardenDashboard = () => {
           setRecentActivities(activitiesData.data);
         }
 
-        const securityRes = await fetch('http://localhost:5000/api/warden/security/agentic-monitor', {
+        const securityRes = await fetch(`${API_BASE_URL}/api/warden/security/agentic-monitor`, {
           headers: getAuthHeaders()
         });
         const securityData = await securityRes.json();
@@ -62,7 +63,7 @@ const WardenDashboard = () => {
         }
         
         // Fetch warden dashboard stats for summary
-        const dashRes = await fetch('http://localhost:5000/api/warden/dashboard', {
+        const dashRes = await fetch(`${API_BASE_URL}/api/warden/dashboard`, {
           headers: getAuthHeaders()
         });
         const dashData = await dashRes.json();

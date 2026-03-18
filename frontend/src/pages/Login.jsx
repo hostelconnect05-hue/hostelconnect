@@ -58,7 +58,6 @@ const Login = () => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [showDemoInfo, setShowDemoInfo] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [userType, setUserType] = useState('student'); // 'student' or 'staff'
 
@@ -108,30 +107,6 @@ const Login = () => {
     } catch (err) {
       setError('Unexpected error occurred. Please try again.');
       console.error('Login error:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Quick login helper (for testing)
-  const quickLogin = async (email, password) => {
-    // Set userType based on login identifier
-    const isStaff = email.includes('@') && !email.includes('student');
-    setUserType(isStaff ? 'staff' : 'student');
-    
-    setFormData({ email, password });
-    setLoading(true);
-    setError('');
-
-    try {
-      const response = await login(email, password);
-      if (response.success) {
-        navigate(getDashboardPath(), { replace: true });
-      } else {
-        setError(response.message || 'Login failed');
-      }
-    } catch (err) {
-      setError('Login failed');
     } finally {
       setLoading(false);
     }
@@ -242,67 +217,6 @@ const Login = () => {
               {loading ? 'Logging in...' : 'Login'}
             </button>
           </form>
-
-          {/* Demo Credentials Section */}
-          <div className="demo-credentials">
-            <button 
-              className="demo-toggle-btn"
-              onClick={() => setShowDemoInfo(!showDemoInfo)}
-              type="button"
-            >
-              🔑 {showDemoInfo ? 'Hide' : 'Show'} Demo Credentials
-            </button>
-            
-            {showDemoInfo && (
-              <div className="demo-info">
-                <p className="demo-title">Quick Login (Testing)</p>
-                <div className="demo-users">
-                  <button 
-                    className="demo-user-btn"
-                    onClick={() => quickLogin('23R21A6675', 'sathwik')}
-                    disabled={loading}
-                  >
-                    👨‍🎓 Student (Roll)
-                  </button>
-                  <button 
-                    className="demo-user-btn"
-                    onClick={() => quickLogin('student@hostel.edu', 'student123')}
-                    disabled={loading}
-                  >
-                    👨‍🎓 Student (Email)
-                  </button>
-                  <button 
-                    className="demo-user-btn"
-                    onClick={() => quickLogin('warden@hostel.edu', 'warden123')}
-                    disabled={loading}
-                  >
-                    👔 Warden
-                  </button>
-                  <button 
-                    className="demo-user-btn"
-                    onClick={() => quickLogin('admin@hostel.edu', 'admin123')}
-                    disabled={loading}
-                  >
-                    🔧 Admin
-                  </button>
-                  <button 
-                    className="demo-user-btn"
-                    onClick={() => quickLogin('technician@hostel.edu', 'tech123')}
-                    disabled={loading}
-                  >
-                    🔨 Technician
-                  </button>
-                  <button 
-                    className="demo-user-btn"
-                    onClick={() => quickLogin('security@hostel.edu', 'security123')}
-                    disabled={loading}
-                  >
-                    🛡️ Security
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
 
           {/* Register Link */}
           <div className="login-footer">

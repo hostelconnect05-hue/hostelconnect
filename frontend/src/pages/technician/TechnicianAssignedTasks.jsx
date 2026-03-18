@@ -1,9 +1,12 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { getCurrentUser } from '../../utils/auth';
+import { API_BASE_URL } from '../../utils/config.js';
 import '../../styles/warden-dashboard.css';
 
 const TechnicianAssignedTasks = () => {
-  const API_BASE_URL = 'http://localhost:5000';
+  // API base URL is set via Vite environment variables
+  // e.g. VITE_API_URL=http://localhost:5000 (dev) or https://api.example.com (prod)
+  const apiBase = API_BASE_URL;
   const [tasks, setTasks] = useState([]);
   const [selectedStatus, setSelectedStatus] = useState('assigned');
   const [loading, setLoading] = useState(true);
@@ -40,7 +43,7 @@ const TechnicianAssignedTasks = () => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
 
-      const apiUrl = `${API_BASE_URL}/api/technician/${currentUser.userId}/complaints`;
+      const apiUrl = `${apiBase}/api/technician/${currentUser.userId}/complaints`;
       console.log(`📡 API URL: ${apiUrl}`);
 
       const res = await fetch(apiUrl, { signal: controller.signal });
@@ -105,7 +108,7 @@ const TechnicianAssignedTasks = () => {
       setUpdatingId(id);
       const resolution_notes = status === 'resolved' ? (actionDrafts[id]?.text || '') : null;
       
-      const res = await fetch(`http://localhost:5000/api/technician/${id}/update-status`, {
+      const res = await fetch(`${apiBase}/api/technician/${id}/update-status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status, resolution_notes })

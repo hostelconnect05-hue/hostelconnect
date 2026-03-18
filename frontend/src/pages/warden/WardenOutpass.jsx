@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { getAuthHeaders, getCurrentUser } from '../../utils/auth';
+import { API_BASE_URL } from '../../utils/config';
 import '../../styles/warden-dashboard.css';
 import '../../styles/warden-outpass.css';
 
@@ -41,7 +42,7 @@ const WardenOutpass = () => {
   useEffect(() => {
     const fetchHolidayMode = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/system/holiday-mode');
+        const res = await fetch(`${API_BASE_URL}/api/system/holiday-mode`);
         const data = await res.json();
         if (data.success) {
           setHolidayMode(data.holidayMode);
@@ -57,7 +58,7 @@ const WardenOutpass = () => {
   const toggleHolidayMode = async () => {
     const newMode = !holidayMode;
     try {
-      const res = await fetch('http://localhost:5000/api/system/holiday-mode', {
+      const res = await fetch(`${API_BASE_URL}/api/system/holiday-mode`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -81,10 +82,10 @@ const WardenOutpass = () => {
     setLoading(true);
     try {
       const [pendingRes, approvedRes, rejectedRes, alertsRes] = await Promise.all([
-        fetch('http://localhost:5000/api/warden/outpasses/pending', { headers: getAuthHeaders() }),
-        fetch('http://localhost:5000/api/warden/outpasses/approved', { headers: getAuthHeaders() }),
-        fetch('http://localhost:5000/api/warden/outpasses/rejected', { headers: getAuthHeaders() }),
-        fetch('http://localhost:5000/api/warden/outpasses/alerts', { headers: getAuthHeaders() })
+        fetch(`${API_BASE_URL}/api/warden/outpasses/pending`, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE_URL}/api/warden/outpasses/approved`, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE_URL}/api/warden/outpasses/rejected`, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE_URL}/api/warden/outpasses/alerts`, { headers: getAuthHeaders() })
       ]);
 
       const pendingData = await pendingRes.json();
@@ -133,8 +134,8 @@ const WardenOutpass = () => {
     try {
       setUpdatingId(id);
       const endpoint = status === 'approved' 
-        ? `http://localhost:5000/api/warden/outpass/${id}/approve`
-        : `http://localhost:5000/api/warden/outpass/${id}/reject`;
+        ? `${API_BASE_URL}/api/warden/outpass/${id}/approve`
+        : `${API_BASE_URL}/api/warden/outpass/${id}/reject`;
 
       const rejection_reason = status === 'rejected' ? (actionDrafts[id]?.text || '') : null;
       

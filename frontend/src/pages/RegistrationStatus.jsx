@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../utils/config.js';
 import Navbar from '../components/Navbar';
 import '../styles/registration-status.css';
 
@@ -32,7 +33,7 @@ const RegistrationStatus = () => {
       const param = query.includes('@')
         ? `email=${encodeURIComponent(query)}`
         : `roll_number=${encodeURIComponent(query)}`;
-      const response = await fetch(`http://localhost:5000/api/student/registration-status?${param}`);
+      const response = await fetch(`${API_BASE_URL}/api/student/registration-status?${param}`);
       const data = await response.json();
 
       if (data.success) {

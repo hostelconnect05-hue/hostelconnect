@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getAuthHeaders } from '../../utils/auth';
+import { API_BASE_URL } from '../../utils/config';
 import '../../styles/warden-complaints.css';
 
 const WardenComplaints = () => {
@@ -23,7 +24,7 @@ const WardenComplaints = () => {
 
   const fetchComplaints = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/warden/complaints/all', {
+      const response = await fetch(`${API_BASE_URL}/api/warden/complaints/all`, {
         headers: getAuthHeaders()
       });
       const data = await response.json();
@@ -39,7 +40,7 @@ const WardenComplaints = () => {
 
   const fetchTechnicians = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/warden/technicians', {
+      const response = await fetch(`${API_BASE_URL}/api/warden/technicians`, {
         headers: getAuthHeaders()
       });
       const data = await response.json();
@@ -96,7 +97,7 @@ const WardenComplaints = () => {
     if (!selectedTechnician || !complaintToAssign) return;
     setAssigningId(complaintToAssign.id);
     try {
-      const response = await fetch(`http://localhost:5000/api/technician/complaint/${complaintToAssign.id}/assign`, {
+      const response = await fetch(`${API_BASE_URL}/api/technician/complaint/${complaintToAssign.id}/assign`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ technician_id: Number(selectedTechnician) })
@@ -122,7 +123,7 @@ const WardenComplaints = () => {
   const handleMarkResolved = async (complaintId) => {
     setResolvingId(complaintId);
     try {
-      const response = await fetch(`http://localhost:5000/api/technician/complaint/${complaintId}/resolve`, {
+      const response = await fetch(`${API_BASE_URL}/api/technician/complaint/${complaintId}/resolve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ resolution_notes: 'Resolved by warden' })

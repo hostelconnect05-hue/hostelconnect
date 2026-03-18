@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getCurrentUser } from '../utils/auth';
+import { API_BASE_URL } from '../utils/config.js';
 import '../styles/profile-modal.css';
 
 /**
@@ -11,7 +12,6 @@ const ProfileModal = ({ onClose }) => {
   const [profileData, setProfileData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const API_BASE_URL = 'http://localhost:5000';
   
   const user = getCurrentUser();
   const userId = user?.userId || user?.id;

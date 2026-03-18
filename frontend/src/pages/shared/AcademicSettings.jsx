@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { API_BASE_URL } from '../../utils/config.js';
 import '../../styles/academic-settings.css';
 
 const AcademicSettings = () => {
@@ -24,8 +25,8 @@ const AcademicSettings = () => {
     setLoading(true);
     try {
       const [collegesRes, branchesRes] = await Promise.all([
-        fetch('http://localhost:5000/api/settings/colleges?includeInactive=true'),
-        fetch('http://localhost:5000/api/settings/branches?includeInactive=true')
+        fetch(`${API_BASE_URL}/api/settings/colleges?includeInactive=true`),
+        fetch(`${API_BASE_URL}/api/settings/branches?includeInactive=true`)
       ]);
       const [collegesData, branchesData] = await Promise.all([
         collegesRes.json(),
@@ -45,7 +46,7 @@ const AcademicSettings = () => {
     const name = newCollege.trim();
     if (!name) return;
     try {
-      const res = await fetch('http://localhost:5000/api/settings/colleges', {
+      const res = await fetch(`${API_BASE_URL}/api/settings/colleges`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name })
@@ -66,7 +67,7 @@ const AcademicSettings = () => {
     const name = newBranch.trim();
     if (!name) return;
     try {
-      const res = await fetch('http://localhost:5000/api/settings/branches', {
+      const res = await fetch(`${API_BASE_URL}/api/settings/branches`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name })
@@ -94,7 +95,7 @@ const AcademicSettings = () => {
   const saveCollege = async () => {
     if (!editingCollege) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/settings/colleges/${editingCollege.id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/settings/colleges/${editingCollege.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: editingCollege.name, status: editingCollege.status })
@@ -114,7 +115,7 @@ const AcademicSettings = () => {
   const saveBranch = async () => {
     if (!editingBranch) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/settings/branches/${editingBranch.id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/settings/branches/${editingBranch.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: editingBranch.name, status: editingBranch.status })
@@ -133,7 +134,7 @@ const AcademicSettings = () => {
 
   const deleteCollege = async (id) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/settings/colleges/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${API_BASE_URL}/api/settings/colleges/${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success) {
         setDeleteConfirm({ open: false, type: null, id: null, name: '' });
@@ -148,7 +149,7 @@ const AcademicSettings = () => {
 
   const deleteBranch = async (id) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/settings/branches/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${API_BASE_URL}/api/settings/branches/${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success) {
         setDeleteConfirm({ open: false, type: null, id: null, name: '' });

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { getAuthHeaders } from '../../utils/auth';
+import { API_BASE_URL } from '../../utils/config.js';
 import '../../styles/warden-complaints.css';
 
 const WardenComplaints = () => {
@@ -37,8 +38,8 @@ const WardenComplaints = () => {
     setError('');
     try {
       const [complaintsRes, techniciansRes] = await Promise.all([
-        fetch('http://localhost:5000/api/warden/complaints/all', { headers: getAuthHeaders() }),
-        fetch('http://localhost:5000/api/warden/technicians', { headers: getAuthHeaders() })
+        fetch(`${API_BASE_URL}/api/warden/complaints/all`, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE_URL}/api/warden/technicians`, { headers: getAuthHeaders() })
       ]);
 
       if (!complaintsRes.ok || !techniciansRes.ok) {
@@ -177,7 +178,7 @@ const WardenComplaints = () => {
     setAssignMessage({ type: '', text: '' });
     try {
       const response = await fetch(
-        `http://localhost:5000/api/warden/complaint/${selectedComplaint.id}/assign`,
+        `${API_BASE_URL}/api/warden/complaint/${selectedComplaint.id}/assign`,
         {
           method: 'POST',
           headers: getAuthHeaders(true),

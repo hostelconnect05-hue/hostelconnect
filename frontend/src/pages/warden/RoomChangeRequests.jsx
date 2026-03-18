@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getAuthHeaders, getCurrentUser } from '../../utils/auth';
+import { API_BASE_URL } from '../../utils/config';
 import '../../styles/warden-room-change-requests.css';
 
 const RoomChangeRequests = () => {
@@ -39,7 +40,7 @@ const RoomChangeRequests = () => {
 
   const fetchRequests = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/warden/room-change-requests', {
+      const response = await fetch(`${API_BASE_URL}/api/warden/room-change-requests`, {
         headers: getAuthHeaders()
       });
       const data = await response.json();
@@ -78,7 +79,7 @@ const RoomChangeRequests = () => {
         return;
       }
       
-      const response = await fetch(`http://localhost:5000/api/warden/room-change-request/${id}/approve`, {
+      const response = await fetch(`${API_BASE_URL}/api/warden/room-change-request/${id}/approve`, {
         method: 'POST',
         headers: getAuthHeaders(true),
         body: JSON.stringify({ approved_by: user.userId })
@@ -109,7 +110,7 @@ const RoomChangeRequests = () => {
         return;
       }
       
-      const response = await fetch(`http://localhost:5000/api/warden/room-change-request/${id}/reject`, {
+      const response = await fetch(`${API_BASE_URL}/api/warden/room-change-request/${id}/reject`, {
         method: 'POST',
         headers: getAuthHeaders(true),
         body: JSON.stringify({ 

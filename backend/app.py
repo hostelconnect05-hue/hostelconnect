@@ -1,9 +1,6 @@
 from flask import Flask, request, jsonify, g
 from flask_cors import CORS
-import mysql.connector
-from flask import Flask, request, jsonify, g
-from flask_cors import CORS
-import mysql.connector
+import pymysql
 from werkzeug.security import check_password_hash, generate_password_hash
 from datetime import datetime, date, time, timedelta
 from functools import wraps
@@ -23,9 +20,29 @@ from google.oauth2.service_account import Credentials
 from google.auth.transport.requests import Request
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
+from dotenv import load_dotenv
+from cloudinary_utils import init_cloudinary, upload_to_cloudinary
+
+# Load environment variables from backend/.env (local development)
+dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
+if os.path.exists(dotenv_path):
+    load_dotenv(dotenv_path)
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for React frontend
+
+# Frontend URL (used for CORS and links in emails)
+FRONTEND_URL = os.getenv('FRONTEND_URL', '')
+
+# CORS Configuration (allow any origin by default)
+# Use FRONTEND_URL or explicit CORS_ORIGINS if provided.
+CORS_ORIGINS = os.getenv('CORS_ORIGINS') or FRONTEND_URL or '*'
+CORS(app, resources={r"/*": {"origins": CORS_ORIGINS}}, supports_credentials=True)
+
+# Flask Secret Key
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY') or secrets.token_hex(32)
 
 LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO').upper()
 if not app.logger.handlers:
@@ -40,14 +57,20 @@ if USE_SMTP:
     SMTP_CONFIG = {
         'smtp_server': os.getenv('SMTP_SERVER', 'smtp.gmail.com'),
         'smtp_port': int(os.getenv('SMTP_PORT', 587)),
-        'sender_email': os.getenv('SENDER_EMAIL', 'hostelconnect05@gmail.com'),
-        'sender_password': os.getenv('SENDER_PASSWORD', 'pnwv tpzk agxx gcxy'),
+        'sender_email': os.getenv('SMTP_EMAIL'),
+        'sender_password': os.getenv('SMTP_PASSWORD'),
         'use_tls': True
     }
+    if not SMTP_CONFIG['sender_email'] or not SMTP_CONFIG['sender_password']:
+        app.logger.error("SMTP credentials not configured properly")
     print("Email mode: SMTP")
     print(f"Sender email: {SMTP_CONFIG['sender_email']}")
 else:
     # Gmail API Configuration (OAuth2)
+    CLIENT_SECRET_FILE = os.path.join(os.path.dirname(__file__), 'client_secret.json')
+    SENDER_EMAIL = 'hostelconnect05@gmail.com'
+    SCOPES = ['https://www.googleapis.com/auth/gmail.send']
+    print("Email mode: Gmail API")
     CLIENT_SECRET_FILE = os.path.join(os.path.dirname(__file__), 'client_secret.json')
     SENDER_EMAIL = 'hostelconnect05@gmail.com'
     SCOPES = ['https://www.googleapis.com/auth/gmail.send']
@@ -64,17 +87,38 @@ def get_gmail_service():
         print(f"Error creating Gmail service: {str(e)}")
         return None
 
-# MySQL Configuration
-app.config['MYSQL_HOST'] = 'localhost'
-app.config['MYSQL_USER'] = 'root'
-app.config['MYSQL_PASSWORD'] = 'navaroj@1923132'
-app.config['MYSQL_DB'] = 'hostelconnect_db'
+# Database Configuration (MySQL / Railway / RDS)
+# Supports both DB_* and MYSQL_* env vars (docker-compose uses MYSQL_*).
+DB_HOST = os.getenv('DB_HOST') or os.getenv('MYSQL_HOST')
+DB_USER = os.getenv('DB_USER') or os.getenv('MYSQL_USER')
+DB_PASSWORD = os.getenv('DB_PASSWORD') or os.getenv('MYSQL_PASSWORD')
+DB_NAME = os.getenv('DB_NAME') or os.getenv('MYSQL_DATABASE')
+DB_PORT = int(os.getenv('DB_PORT') or os.getenv('MYSQL_PORT') or 3306)
+DB_SSL_ENABLED = os.getenv('DB_SSL', 'false').lower() in ('1', 'true', 'yes')
 
-# File Upload Configuration
-UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), '..', 'uploaded_files')
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10MB max file size
+DB_CONFIG = {
+    'host': DB_HOST,
+    'user': DB_USER,
+    'password': DB_PASSWORD,
+    'database': DB_NAME,
+    'port': DB_PORT,
+    'charset': 'utf8mb4',
+    'cursorclass': pymysql.cursors.DictCursor,
+}
+
+if DB_SSL_ENABLED:
+    # Railway and some managed MySQL providers require SSL connections.
+    DB_CONFIG['ssl'] = {'ssl': {}}
+
+# Validate database environment variables
+if not all([DB_CONFIG['host'], DB_CONFIG['user'], DB_CONFIG['password'], DB_CONFIG['database']]):
+    raise Exception("Database environment variables not set properly")
+
+# Cloudinary Configuration
+init_cloudinary()
+
+# File Upload Configuration (Now using Cloudinary)
+# Local storage removed - using Cloudinary for file storage
 ALLOWED_EXTENSIONS = {'pdf', 'jpg', 'jpeg', 'png', 'gif', 'doc', 'docx'}
 
 OUTPASS_GRACE_MINUTES = int(os.getenv('OUTPASS_GRACE_MINUTES', '30'))
@@ -508,15 +552,10 @@ def ensure_role_staff_id(cursor, connection, user_id, role, existing_staff_id=No
 def get_db_connection():
     """Create and return a MySQL database connection"""
     try:
-        connection = mysql.connector.connect(
-            host=app.config['MYSQL_HOST'],
-            user=app.config['MYSQL_USER'],
-            password=app.config['MYSQL_PASSWORD'],
-            database=app.config['MYSQL_DB']
-        )
+        connection = pymysql.connect(**DB_CONFIG)
         return connection
-    except mysql.connector.Error as err:
-        print(f"Database connection error: {err}")
+    except Exception as err:
+        app.logger.exception("Database connection error")
         return None
 
 
@@ -554,7 +593,18 @@ def apply_sql_migrations():
     connection.commit()
 
     cursor.execute("SELECT migration_name FROM schema_migrations")
-    applied_migrations = {row[0] for row in cursor.fetchall()}
+
+    def _extract_migration_name(row):
+        if isinstance(row, dict):
+            return row.get('migration_name')
+        if isinstance(row, (list, tuple)) and len(row) > 0:
+            return row[0]
+        return None
+
+    applied_migrations = {
+        name for row in cursor.fetchall()
+        if (name := _extract_migration_name(row))
+    }
 
     migration_files = sorted(
         file_name for file_name in os.listdir(migrations_dir)
@@ -602,6 +652,38 @@ def apply_sql_migrations():
 
     cursor.close()
     connection.close()
+
+
+def update_room_occupancy(actual_counts):
+    """Update rooms occupied_count and status based on actual student assignments."""
+    if not isinstance(actual_counts, dict):
+        return
+
+    connection = get_db_connection()
+    if not connection:
+        return
+
+    cursor = connection.cursor(dictionary=True)
+    try:
+        for room_id, actual_count in actual_counts.items():
+            cursor.execute("SELECT capacity FROM rooms WHERE id = %s", (room_id,))
+            row = cursor.fetchone()
+            if not row:
+                continue
+
+            capacity = row.get('capacity') if isinstance(row, dict) else (row[0] if row else 0)
+            status = 'full' if actual_count >= capacity else 'available'
+
+            cursor.execute(
+                "UPDATE rooms SET occupied_count = %s, status = %s WHERE id = %s",
+                (actual_count, status, room_id)
+            )
+        connection.commit()
+    except Exception as e:
+        print(f"Error updating room occupancy: {e}")
+    finally:
+        cursor.close()
+        connection.close()
 
 
 def ensure_outpass_monitoring_columns():
@@ -2223,7 +2305,9 @@ def send_approval_email(student_email, student_name):
     """Send registration approval email to student"""
     try:
         subject = "🎉 Your HostelConnect Registration Has Been Approved!"
-        
+
+        dashboard_url = (FRONTEND_URL.rstrip('/') + '/student/dashboard') if FRONTEND_URL else 'https://your-frontend-url/student/dashboard'
+
         html_body = f"""
         <html>
             <head>
@@ -2271,7 +2355,7 @@ def send_approval_email(student_email, student_name):
                             <li>🔧 Complaint & maintenance requests</li>
                         </ul>
                         
-                        <p><a href="http://localhost:5173/student/dashboard" class="button">Go to Your Dashboard →</a></p>
+                        <p><a href="{dashboard_url}" class="button">Go to Your Dashboard →</a></p>
                         
                         <p>If you have any questions or need assistance, please contact your hostel warden or the HostelConnect support team.</p>
                         
@@ -2705,7 +2789,8 @@ def get_approved_outpasses():
         return jsonify({'success': True, 'data': enriched}), 200
 
     except Exception as e:
-        return jsonify({'success': False, 'message': str(e)}), 500
+        app.logger.error(f"Error in get_warden_leave_alerts: {str(e)}")
+        return jsonify({'success': False, 'message': 'Internal server error'}), 500
 
 
 @app.route('/api/warden/outpasses/alerts', methods=['GET'])
@@ -2750,7 +2835,8 @@ def get_warden_outpass_alerts():
         return jsonify({'success': True, 'data': enriched, 'count': len(enriched)}), 200
 
     except Exception as e:
-        return jsonify({'success': False, 'message': str(e)}), 500
+        app.logger.error(f"Error in get_warden_outpass_alerts: {str(e)}")
+        return jsonify({'success': False, 'message': 'Internal server error'}), 500
 
 
 @app.route('/api/warden/outpasses/rejected', methods=['GET'])
@@ -2785,7 +2871,8 @@ def get_rejected_outpasses():
         return jsonify({'success': True, 'data': outpasses}), 200
 
     except Exception as e:
-        return jsonify({'success': False, 'message': str(e)}), 500
+        app.logger.error(f"Error in get_rejected_outpasses: {str(e)}")
+        return jsonify({'success': False, 'message': 'Internal server error'}), 500
 
 
 def send_email(recipient_email, subject, html_body):
@@ -2909,6 +2996,25 @@ def test_connection():
             'message': 'Database connection failed'
         }), 500
 
+
+@app.route('/test-db', methods=['GET'])
+def test_db():
+    """Verify database connectivity and run a simple query."""
+    connection = get_db_connection()
+    if not connection:
+        return api_error('db_connection_failed', 'Could not connect to database', status_code=500)
+
+    try:
+        cursor = connection.cursor()
+        cursor.execute('SELECT 1')
+        cursor.fetchone()
+        return api_success({'db': 'connected'}, 'Database connection successful')
+    except Exception as e:
+        app.logger.exception('Database health check failed')
+        return api_error('db_query_failed', 'Failed to execute health query', status_code=500, details={'error': str(e)})
+    finally:
+        connection.close()
+
 # Login API Endpoint
 @app.route('/api/login', methods=['POST'])
 def login():
@@ -2935,6 +3041,14 @@ def login():
             return api_error(
                 'AUTH_MISSING_CREDENTIALS',
                 'Email/roll number/staff ID and password are required',
+                400
+            )
+
+        # Basic email validation if identifier looks like email
+        if '@' in identifier and '.' not in identifier:
+            return api_error(
+                'AUTH_INVALID_EMAIL',
+                'Invalid email format',
                 400
             )
 
@@ -7710,6 +7824,7 @@ def get_all_users():
             query = """
                 SELECT u.id, u.name, u.email, u.role, u.status, u.created_at, u.staff_id,
                     s.roll_number, s.college_name, s.branch, s.year, s.fee_status, s.registration_status,
+                    s.parent_name, s.parent_email, s.parent_phone,
                     COALESCE(s.phone, w.phone, sp.phone, t.phone) AS phone,
                     s.room_id, r.room_number, b.id AS block_id, b.block_name,
                     COALESCE(b.block_name, w.hostel_block) AS block,
@@ -7741,6 +7856,7 @@ def get_all_users():
             query = """
                 SELECT u.id, u.name, u.email, u.role, u.status, u.created_at, u.staff_id,
                     s.roll_number, s.college_name, s.branch, s.year, s.fee_status, s.registration_status,
+                    s.parent_name, s.parent_email, s.parent_phone,
                     COALESCE(s.phone, w.phone, sp.phone, t.phone) AS phone,
                     s.room_id, r.room_number, b.id AS block_id, b.block_name,
                     COALESCE(b.block_name, w.hostel_block) AS block,
@@ -8114,6 +8230,9 @@ def update_user_details(user_id):
             roll_number = data.get('rollNumber')
             room_id = data.get('roomId')  # Room ID for hostel assignment
             fee_status = data.get('feeStatus')  # Payment status update
+            parent_name = data.get('parentName')
+            parent_email = data.get('parentEmail')
+            parent_phone = data.get('parentPhone')
             
             # Get existing student record with current room
             cursor.execute("SELECT id, room_id FROM students WHERE user_id = %s", (user_id,))
@@ -8183,6 +8302,16 @@ def update_user_details(user_id):
                 if phone:
                     student_update += "phone = %s, "
                     student_params.append(phone)
+                # Parent/Guardian contact details
+                if parent_name is not None:
+                    student_update += "parent_name = %s, "
+                    student_params.append(parent_name)
+                if parent_email is not None:
+                    student_update += "parent_email = %s, "
+                    student_params.append(parent_email)
+                if parent_phone is not None:
+                    student_update += "parent_phone = %s, "
+                    student_params.append(parent_phone)
                 if room_id:
                     student_update += "room_id = %s, "
                     student_params.append(room_id)
@@ -8323,68 +8452,47 @@ def update_user_details(user_id):
 
 @app.route('/api/upload/payment-proof', methods=['POST'])
 def upload_payment_proof():
-    """Upload payment proof document (receipt)"""
+    """Upload payment proof document to Cloudinary"""
     try:
         # Check if file is present in request
         if 'file' not in request.files:
             return jsonify({'success': False, 'message': 'No file provided'}), 400
-        
+
         file = request.files['file']
-        
+
         if file.filename == '':
             return jsonify({'success': False, 'message': 'No file selected'}), 400
-        
+
         # Validate file type
         if not allowed_file(file.filename):
             return jsonify({'success': False, 'message': f'File type not allowed. Allowed: {", ".join(ALLOWED_EXTENSIONS)}'}), 400
-        
+
         # Generate unique filename
-        import secrets
         from werkzeug.utils import secure_filename
-        
         filename = secure_filename(file.filename)
         unique_filename = f"{secrets.token_hex(8)}_{filename}"
-        
-        # Save file
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
-        file.save(filepath)
-        
-        # Return file path relative to uploads directory
-        relative_path = f"/api/files/payment-proof/{unique_filename}"
-        
-        print(f"Payment proof uploaded: {relative_path}")
-        
+
+        # Upload to Cloudinary using utility function
+        upload_result = upload_to_cloudinary(file, folder="hostelconnect/payment-proofs")
+
+        if not upload_result['success']:
+            return jsonify({'success': False, 'message': upload_result['error']}), 500
+
+        # Get the secure URL
+        file_url = upload_result['url']
+
+        print(f"Payment proof uploaded to Cloudinary: {file_url}")
+
         return jsonify({
             'success': True,
             'message': 'File uploaded successfully',
-            'file_path': relative_path,
-            'filename': filename
+            'file_url': file_url,
+            'filename': filename,
+            'public_id': upload_result['public_id']
         }), 200
-        
-    except Exception as e:
-        print(f"Error uploading file: {str(e)}")
-        return jsonify({'success': False, 'message': str(e)}), 500
 
-
-@app.route('/api/files/payment-proof/<filename>', methods=['GET'])
-def download_payment_proof(filename):
-    """Download payment proof document"""
-    try:
-        from flask import send_file
-        from werkzeug.utils import secure_filename
-        
-        # Prevent directory traversal attacks
-        filename = secure_filename(filename)
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        
-        # Check if file exists
-        if not os.path.exists(filepath):
-            return jsonify({'success': False, 'message': 'File not found'}), 404
-        
-        return send_file(filepath, as_attachment=True)
-        
     except Exception as e:
-        print(f"Error downloading file: {str(e)}")
+        print(f"Error uploading file to Cloudinary: {str(e)}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
@@ -10842,15 +10950,7 @@ def update_mess_menu():
 
 
 if __name__ == '__main__':
-    print("=" * 50)
-    print("HostelConnect Backend Server Starting...")
-    print("=" * 50)
-    print("API Base URL: http://localhost:5000")
-    print("Login Endpoint: http://localhost:5000/api/login")
-    print("Test Endpoint: http://localhost:5000/api/test")
-    print("=" * 50)
-    
-    # Verify room occupancy on startup
+    # Verify and prepare database (migrations, schema) on startup
     try:
         apply_sql_migrations()
         ensure_audit_log_table()
@@ -10859,6 +10959,7 @@ if __name__ == '__main__':
         ensure_complaint_monitoring_columns()
         ensure_leave_monitoring_columns()
         ensure_security_monitoring_columns()
+
         if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or not app.debug:
             start_outpass_monitor_agent()
             start_complaint_monitor_agent()
@@ -10876,28 +10977,14 @@ if __name__ == '__main__':
                 WHERE room_id IS NOT NULL
                 GROUP BY room_id
             """)
-            room_counts = cursor.fetchall()
-            count_map = {row['room_id']: row['actual_count'] for row in room_counts}
-            
-            # Get all rooms and check for discrepancies
-            cursor.execute("SELECT id, occupied_count FROM rooms")
-            all_rooms = cursor.fetchall()
-            
-            discrepancy_count = 0
-            for room in all_rooms:
-                actual_count = count_map.get(room['id'], 0)
-                if room['occupied_count'] != actual_count:
-                    discrepancy_count += 1
-            
-            if discrepancy_count > 0:
-                print(f"WARNING: {discrepancy_count} rooms have incorrect occupancy counts")
-                print("Use POST /api/admin/rooms/recalculate-occupancy to fix")
-            else:
-                print("All room occupancy counts are correct")
+            actual_counts = {row['room_id']: row['actual_count'] for row in cursor.fetchall()}
+            update_room_occupancy(actual_counts)
             cursor.close()
             connection.close()
-    except Exception as e:
-        print(f"Could not verify room occupancy: {e}")
-    
-    print("=" * 50)
-    app.run(debug=True, host='127.0.0.1', port=5000)
+
+    except Exception:
+        # Startup should not fail silently; log and continue
+        app.logger.exception('Error during startup initialization')
+
+    port = int(os.getenv('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)

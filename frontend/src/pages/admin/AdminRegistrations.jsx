@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import ContextActionModal from '../../components/ContextActionModal';
+import { API_BASE_URL } from '../../utils/config.js';
 import '../../styles/admin-registrations.css';
 
 const AdminRegistrations = () => {
@@ -16,9 +17,9 @@ const AdminRegistrations = () => {
     setLoading(true);
     try {
       const [pendingRes, approvedRes, rejectedRes] = await Promise.all([
-        fetch('http://localhost:5000/api/admin/registrations/pending'),
-        fetch('http://localhost:5000/api/admin/registrations/approved'),
-        fetch('http://localhost:5000/api/admin/registrations/rejected')
+        fetch(`${API_BASE_URL}/api/admin/registrations/pending`),
+        fetch(`${API_BASE_URL}/api/admin/registrations/approved`),
+        fetch(`${API_BASE_URL}/api/admin/registrations/rejected`)
       ]);
 
       const [pendingData, approvedData, rejectedData] = await Promise.all([
@@ -94,7 +95,7 @@ const AdminRegistrations = () => {
     if (!selectedRegistration) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/registrations/${selectedRegistration.student_id}/approve`, {
+      const res = await fetch(`${API_BASE_URL}/api/admin/registrations/${selectedRegistration.student_id}/approve`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fee_status: selectedRegistration.fee_status || 'pending' })
@@ -127,7 +128,7 @@ const AdminRegistrations = () => {
     if (!selectedRegistration) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/registrations/${selectedRegistration.student_id}/reject`, {
+      const res = await fetch(`${API_BASE_URL}/api/admin/registrations/${selectedRegistration.student_id}/reject`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rejection_reason: 'Rejected by admin' })
@@ -168,7 +169,7 @@ const AdminRegistrations = () => {
     if (paymentProofUrl.startsWith('http://') || paymentProofUrl.startsWith('https://')) {
       return paymentProofUrl;
     }
-    return `http://localhost:5000${paymentProofUrl}`;
+    return `${API_BASE_URL}${paymentProofUrl}`;
   };
 
   return (

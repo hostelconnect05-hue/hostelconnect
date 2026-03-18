@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { jsPDF } from 'jspdf';
+import { API_BASE_URL } from '../../utils/config';
 import '../../styles/admin-reports.css';
 
 const AdminReports = () => {
@@ -53,7 +54,7 @@ const AdminReports = () => {
     setLoading(true);
     try {
       // Fetch analytics data
-      const analyticsRes = await fetch('http://localhost:5000/api/admin/reports/analytics');
+      const analyticsRes = await fetch(`${API_BASE_URL}/api/admin/reports/analytics`);
       const analyticsJson = await analyticsRes.json();
       if (analyticsJson.success) {
         setAnalyticsData({
@@ -90,28 +91,28 @@ const AdminReports = () => {
       }
 
       // Fetch room occupancy trend
-      const occupancyRes = await fetch('http://localhost:5000/api/admin/reports/room-occupancy-trend');
+      const occupancyRes = await fetch(`${API_BASE_URL}/api/admin/reports/room-occupancy-trend`);
       const occupancyJson = await occupancyRes.json();
       if (occupancyJson.success) {
         setRoomOccupancyData(occupancyJson.data);
       }
 
       // Fetch complaints by category
-      const complaintsRes = await fetch('http://localhost:5000/api/admin/reports/complaints-by-category');
+      const complaintsRes = await fetch(`${API_BASE_URL}/api/admin/reports/complaints-by-category`);
       const complaintsJson = await complaintsRes.json();
       if (complaintsJson.success) {
         setComplaintsData(complaintsJson.data);
       }
 
       // Fetch outpass trend
-      const outpassRes = await fetch('http://localhost:5000/api/admin/reports/outpass-trend');
+      const outpassRes = await fetch(`${API_BASE_URL}/api/admin/reports/outpass-trend`);
       const outpassJson = await outpassRes.json();
       if (outpassJson.success) {
         setOutpassData(outpassJson.data);
       }
 
       // Fetch leave trend
-      const leaveRes = await fetch('http://localhost:5000/api/admin/reports/leave-trend');
+      const leaveRes = await fetch(`${API_BASE_URL}/api/admin/reports/leave-trend`);
       const leaveJson = await leaveRes.json();
       if (leaveJson.success) {
         setLeaveData(leaveJson.data);

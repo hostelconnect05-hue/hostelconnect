@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getAuthHeaders } from '../../utils/auth';
+import { API_BASE_URL } from '../../utils/config';
 import '../../styles/warden-technicians.css';
 
 const AdminTechnicians = () => {
@@ -40,7 +41,7 @@ const AdminTechnicians = () => {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch('http://localhost:5000/api/admin/users?role=technician', {
+      const response = await fetch(`${API_BASE_URL}/api/admin/users?role=technician`, {
         headers: getAuthHeaders()
       });
       if (!response.ok) {
@@ -143,8 +144,8 @@ const AdminTechnicians = () => {
     try {
       const isAdd = modalMode === 'add';
       const url = isAdd
-        ? 'http://localhost:5000/api/admin/user'
-        : `http://localhost:5000/api/admin/user/${selectedTech.id}`;
+        ? `${API_BASE_URL}/api/admin/user`
+        : `${API_BASE_URL}/api/admin/user/${selectedTech.id}`;
       const method = isAdd ? 'POST' : 'PUT';
 
       const payload = isAdd
@@ -234,7 +235,7 @@ const AdminTechnicians = () => {
     setSubmitting(true);
     setPasswordError('');
     try {
-      const response = await fetch(`http://localhost:5000/api/admin/user/${selectedTech.id}/password`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/user/${selectedTech.id}/password`, {
         method: 'PUT',
         headers: getAuthHeaders(true),
         body: JSON.stringify({ password: passwordFormData.password })
@@ -263,7 +264,7 @@ const AdminTechnicians = () => {
   const handleDelete = async (techId) => {
     setDeletingId(techId);
     try {
-      const response = await fetch(`http://localhost:5000/api/admin/user/${techId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/user/${techId}`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
@@ -287,7 +288,7 @@ const AdminTechnicians = () => {
     const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
 
     try {
-      const response = await fetch(`http://localhost:5000/api/admin/user/${techId}/status`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/user/${techId}/status`, {
         method: 'PUT',
         headers: getAuthHeaders(true),
         body: JSON.stringify({ status: newStatus })

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getCurrentUser } from '../../utils/auth';
+import { API_BASE_URL } from '../../utils/config';
 import '../../styles/student-room.css';
 
 const DEFAULT_AMENITIES = ['WiFi', 'Study Table', 'Wardrobe', 'Ceiling Fan'];
@@ -98,7 +99,7 @@ const Room = () => {
       setLoading(true);
       
       // Fetch room details
-      const response = await fetch(`http://localhost:5000/api/student/room/${currentUser.userId}`);
+      const response = await fetch(`${API_BASE_URL}/api/student/room/${currentUser.userId}`);
       const data = await response.json();
 
       if (!data.success) {
@@ -130,7 +131,7 @@ const Room = () => {
       
       // Fetch blocks from database
       try {
-        const blocksResponse = await fetch('http://localhost:5000/api/blocks');
+        const blocksResponse = await fetch(`${API_BASE_URL}/api/blocks`);
         const blocksData = await blocksResponse.json();
         if (blocksData.success && Array.isArray(blocksData.data)) {
           setBlocks(blocksData.data);
@@ -181,7 +182,7 @@ const Room = () => {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/student/room-change', {
+      const response = await fetch(`${API_BASE_URL}/api/student/room-change`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

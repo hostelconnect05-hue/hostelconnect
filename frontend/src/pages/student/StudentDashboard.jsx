@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser } from '../../utils/auth';
+import { API_BASE_URL } from '../../utils/config';
 import '../../styles/student-dashboard.css';
 
 const StudentDashboard = () => {
@@ -53,7 +54,7 @@ const StudentDashboard = () => {
         let currentStudentId = null;
         
         // Fetch student profile
-        const profileRes = await fetch(`http://localhost:5000/api/student/profile/${currentUser.userId}`);
+        const profileRes = await fetch(`${API_BASE_URL}/api/student/profile/${currentUser.userId}`);
         const profileData = await profileRes.json();
         if (profileData.success && profileData.data) {
           setStudentProfile(profileData.data);
@@ -63,7 +64,7 @@ const StudentDashboard = () => {
         }
         
         // Fetch outpasses
-        const outpassRes = await fetch(`http://localhost:5000/api/student/outpasses/${currentUser.userId}`);
+        const outpassRes = await fetch(`${API_BASE_URL}/api/student/outpasses/${currentUser.userId}`);
         const outpassData = await outpassRes.json();
         if (outpassData.success && Array.isArray(outpassData.data)) {
           const activeCount = outpassData.data.filter(op => op.status === 'approved').length;
@@ -71,7 +72,7 @@ const StudentDashboard = () => {
         }
         
         // Fetch complaints
-        const complaintRes = await fetch(`http://localhost:5000/api/student/complaints/${currentUser.userId}`);
+        const complaintRes = await fetch(`${API_BASE_URL}/api/student/complaints/${currentUser.userId}`);
         const complaintData = await complaintRes.json();
         if (complaintData.success && Array.isArray(complaintData.data)) {
           const ownComplaints = currentStudentId
@@ -82,11 +83,11 @@ const StudentDashboard = () => {
         }
 
         // Fetch leaves
-        const leaveRes = await fetch(`http://localhost:5000/api/student/leaves/${currentUser.userId}`);
+        const leaveRes = await fetch(`${API_BASE_URL}/api/student/leaves/${currentUser.userId}`);
         const leaveData = await leaveRes.json();
         
         // Fetch parcels
-        const parcelRes = await fetch(`http://localhost:5000/api/student/parcels/${currentUser.userId}`);
+        const parcelRes = await fetch(`${API_BASE_URL}/api/student/parcels/${currentUser.userId}`);
         const parcelData = await parcelRes.json();
         if (parcelData.success && Array.isArray(parcelData.data)) {
           const pendingCount = parcelData.data.filter((parcel) => normalizeParcelStatus(parcel.status) === 'pending').length;

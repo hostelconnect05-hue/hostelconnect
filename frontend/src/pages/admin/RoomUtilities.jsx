@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import ContextActionModal from '../../components/ContextActionModal';
+import { API_BASE_URL } from '../../utils/config';
 import '../../styles/admin-room-utilities.css';
 
 const RoomUtilities = () => {
@@ -19,7 +20,7 @@ const RoomUtilities = () => {
   const handleVerifyOccupancy = async () => {
     setVerifying(true);
     try {
-      const response = await fetch('http://localhost:5000/api/admin/rooms/verify-occupancy');
+      const response = await fetch(`${API_BASE_URL}/api/admin/rooms/verify-occupancy`);
       const data = await response.json();
       setVerifyResult(data);
     } catch (error) {
@@ -38,7 +39,7 @@ const RoomUtilities = () => {
     setShowRecalculateConfirm(false);
     setRecalculating(true);
     try {
-      const response = await fetch('http://localhost:5000/api/admin/rooms/recalculate-occupancy', {
+      const response = await fetch(`${API_BASE_URL}/api/admin/rooms/recalculate-occupancy`, {
         method: 'POST'
       });
       const data = await response.json();

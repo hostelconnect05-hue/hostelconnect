@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getAuthHeaders } from '../../utils/auth';
+import { API_BASE_URL } from '../../utils/config';
 import '../../styles/warden-technicians.css';
 
 const Technicians = () => {
@@ -40,7 +41,7 @@ const Technicians = () => {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch('http://localhost:5000/api/warden/technicians', {
+      const response = await fetch(`${API_BASE_URL}/api/warden/technicians`, {
         headers: getAuthHeaders()
       });
       if (!response.ok) {
@@ -141,8 +142,8 @@ const Technicians = () => {
 
     try {
       const url = modalMode === 'add'
-        ? 'http://localhost:5000/api/warden/technicians'
-        : `http://localhost:5000/api/warden/technicians/${selectedTech.id}`;
+        ? `${API_BASE_URL}/api/warden/technicians`
+        : `${API_BASE_URL}/api/warden/technicians/${selectedTech.id}`;
       
       const method = modalMode === 'add' ? 'POST' : 'PUT';
       
@@ -223,7 +224,7 @@ const Technicians = () => {
     setSubmitting(true);
     setPasswordError('');
     try {
-      const response = await fetch(`http://localhost:5000/api/warden/technicians/${selectedTech.id}/password`, {
+      const response = await fetch(`${API_BASE_URL}/api/warden/technicians/${selectedTech.id}/password`, {
         method: 'PUT',
         headers: getAuthHeaders(true),
         body: JSON.stringify({ password: passwordFormData.password })
@@ -252,7 +253,7 @@ const Technicians = () => {
   const handleDelete = async (techId) => {
     setDeletingId(techId);
     try {
-      const response = await fetch(`http://localhost:5000/api/warden/technicians/${techId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/warden/technicians/${techId}`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
@@ -276,7 +277,7 @@ const Technicians = () => {
     const newStatus = currentStatus === 'available' ? 'off_duty' : 'available';
 
     try {
-      const response = await fetch(`http://localhost:5000/api/warden/technicians/${techId}/status`, {
+      const response = await fetch(`${API_BASE_URL}/api/warden/technicians/${techId}/status`, {
         method: 'PATCH',
         headers: getAuthHeaders(true),
         body: JSON.stringify({ availability_status: newStatus })

@@ -6,9 +6,11 @@ This file is the single source of project documentation.
 
 ## Tech Stack
 
-- Frontend: React + Vite
-- Backend: Flask (Python)
-- Database: MySQL
+- **Frontend**: React + Vite (Deployed on Vercel)
+- **Backend**: Flask (Python) with Gunicorn (Deployed on AWS EC2)
+- **Database**: MySQL (AWS RDS)
+- **File Storage**: Cloudinary
+- **Email**: SMTP (Gmail)
 
 ## Project Structure
 
@@ -231,7 +233,7 @@ npm run dev
 ```
 
 Frontend default URL: `http://localhost:5173`
-
+**Note:** The frontend uses the `VITE_API_BASE_URL` environment variable to connect to the backend. For Docker deployment, it's set to `http://backend:8000`. For local development, create a `.env` file in the frontend directory with `VITE_API_BASE_URL=http://localhost:5000`.
 ## Important Scripts
 
 - `backend/setup_database.py`: applies consolidated schema
@@ -244,3 +246,31 @@ Frontend default URL: `http://localhost:5173`
 - Migrations were consolidated into the main schema for fresh setups.
 - Keep backups before applying schema changes in production environments.
 - Use environment-specific MySQL credentials rather than hardcoding for deployment.
+
+## Deployment
+
+### Frontend (Vercel)
+
+The frontend is configured for Vercel deployment:
+
+1. Connect your GitHub repository to Vercel
+2. Set environment variable: `VITE_API_BASE_URL=https://your-ec2-domain.com`
+3. Deploy automatically on git push
+
+### Backend (AWS EC2 + RDS + Cloudinary)
+
+See `backend/DEPLOYMENT.md` for detailed AWS deployment instructions.
+
+**Quick Setup:**
+1. Launch EC2 instance (Ubuntu 22.04)
+2. Set up RDS MySQL database
+3. Configure Cloudinary account
+4. Run `backend/deploy-ec2.sh` on your EC2 instance
+5. Update `.env` with your credentials
+
+**Environment Variables Required:**
+- Database: `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
+- Security: `SECRET_KEY`
+- Email: `SMTP_EMAIL`, `SMTP_PASSWORD`
+- File Storage: `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`
+- CORS: `FRONTEND_URL` (your Vercel domain)

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getCurrentUser } from '../../utils/auth';
+import { API_BASE_URL } from '../../utils/config.js';
 import '../../styles/security-dashboard.css';
 
 const SecurityOutpass = () => {
@@ -59,7 +60,7 @@ const SecurityOutpass = () => {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/security/outpasses/approved');
+      const response = await fetch(`${API_BASE_URL}/api/security/outpasses/approved`);
       const data = await response.json();
       if (data.success) {
         setOutpasses(data.data);
@@ -84,7 +85,7 @@ const SecurityOutpass = () => {
     const securityUserId = currentUser?.userId || currentUser?.id || null;
     
     try {
-      const response = await fetch(`http://localhost:5000/api/security/outpass/${id}/mark-exit`, {
+      const response = await fetch(`${API_BASE_URL}/api/security/outpass/${id}/mark-exit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -130,7 +131,7 @@ const SecurityOutpass = () => {
     const securityUserId = currentUser?.userId || currentUser?.id || null;
     
     try {
-      const response = await fetch(`http://localhost:5000/api/security/outpass/${id}/mark-return`, {
+      const response = await fetch(`${API_BASE_URL}/api/security/outpass/${id}/mark-return`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

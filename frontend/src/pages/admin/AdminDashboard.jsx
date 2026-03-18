@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../../utils/config';
 import '../../styles/admin-dashboard.css';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 const DASHBOARD_REFRESH_INTERVAL_MS = 15000;
 
 const AdminDashboard = () => {

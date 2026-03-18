@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getCurrentUser } from '../../utils/auth';
+import { API_BASE_URL } from '../../utils/config.js';
 import '../../styles/technician-dashboard.css';
 
 const TechnicianDashboard = () => {
@@ -32,7 +33,7 @@ const TechnicianDashboard = () => {
 
       try {
         // Fetch complaints assigned to this technician only
-        const res = await fetch(`http://localhost:5000/api/technician/${technicianUserId}/complaints`);
+        const res = await fetch(`${API_BASE_URL}/api/technician/${technicianUserId}/complaints`);
         const data = await res.json();
         
         if (data.success && data.all) {
@@ -149,7 +150,7 @@ const TechnicianDashboard = () => {
       setUpdatingId(complaintId);
       
       // Use the update-status endpoint for status changes
-      const res = await fetch(`http://localhost:5000/api/technician/${complaintId}/update-status`, {
+      const res = await fetch(`${API_BASE_URL}/api/technician/${complaintId}/update-status`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

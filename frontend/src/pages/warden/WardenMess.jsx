@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { API_BASE_URL } from '../../utils/config';
 import '../../styles/warden-mess.css';
 
 const WardenMess = () => {
@@ -65,7 +66,7 @@ const WardenMess = () => {
 
   const fetchMessMenu = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/mess/menu');
+      const response = await fetch(`${API_BASE_URL}/api/mess/menu`);
       const data = await response.json();
       
       if (data.success && data.data) {
@@ -115,7 +116,7 @@ const WardenMess = () => {
       setSavingMenu(true);
       try {
         // Save to backend
-        const response = await fetch('http://localhost:5000/api/mess/menu', {
+        const response = await fetch(`${API_BASE_URL}/api/mess/menu`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

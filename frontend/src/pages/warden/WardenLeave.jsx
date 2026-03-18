@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { getAuthHeaders } from '../../utils/auth';
+import { API_BASE_URL } from '../../utils/config';
 import '../../styles/warden-complaints.css';
 
 const parseDate = (value) => new Date(`${value}T00:00:00`);
-const API_BASE_URL = 'http://localhost:5000';
 
 const WardenLeave = () => {
   const [requests, setRequests] = useState([]);
@@ -90,7 +90,7 @@ const WardenLeave = () => {
 
   const fetchLeaveHistory = async (roll) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/warden/leave-history/${encodeURIComponent(roll)}`, {
+      const response = await fetch(`${API_BASE_URL}/api/warden/leave-history/${encodeURIComponent(roll)}`, {
         headers: getAuthHeaders()
       });
       const data = await response.json();

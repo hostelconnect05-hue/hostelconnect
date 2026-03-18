@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { API_BASE_URL } from '../../utils/config.js';
 import '../../styles/security-dashboard.css';
 
-const API_BASE = 'http://localhost:5000';
+const API_BASE = API_BASE_URL;
 
 const isValidDate = (value) => {
   if (!value) {

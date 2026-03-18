@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getAuthHeaders } from '../../utils/auth';
+import { API_BASE_URL } from '../../utils/config';
 import '../../styles/warden-dashboard.css';
 
 const WardenAgenticAlerts = () => {
@@ -16,10 +17,10 @@ const WardenAgenticAlerts = () => {
     setLoading(true);
     try {
       const [complaintRes, outpassRes, leaveRes, securityRes] = await Promise.all([
-        fetch('http://localhost:5000/api/warden/complaints/agentic-alerts?limit=100', { headers: getAuthHeaders() }),
-        fetch('http://localhost:5000/api/warden/outpasses/alerts', { headers: getAuthHeaders() }),
-        fetch('http://localhost:5000/api/warden/leaves/agentic-alerts?limit=100', { headers: getAuthHeaders() }),
-        fetch('http://localhost:5000/api/warden/security/agentic-alerts?limit=100&unread_only=false', { headers: getAuthHeaders() })
+        fetch(`${API_BASE_URL}/api/warden/complaints/agentic-alerts?limit=100`, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE_URL}/api/warden/outpasses/alerts`, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE_URL}/api/warden/leaves/agentic-alerts?limit=100`, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE_URL}/api/warden/security/agentic-alerts?limit=100&unread_only=false`, { headers: getAuthHeaders() })
       ]);
 
       const complaintData = await complaintRes.json();

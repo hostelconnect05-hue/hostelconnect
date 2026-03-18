@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { API_BASE_URL } from '../../utils/config.js';
 import '../../styles/security-dashboard.css';
 
 const SecurityDailyLogs = () => {
@@ -34,7 +35,7 @@ const SecurityDailyLogs = () => {
       setLoading(true);
     }
     try {
-      const url = new URL('http://localhost:5000/api/security/logs');
+      const url = new URL(`${API_BASE_URL}/api/security/logs`);
       url.searchParams.append('date', selectedDate);
       
       const response = await fetch(url.toString());

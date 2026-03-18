@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getAuthHeaders } from '../../utils/auth';
+import { API_BASE_URL } from '../../utils/config';
 import '../../styles/warden-technicians.css';
 
 const AdminSecurity = () => {
@@ -45,7 +46,7 @@ const AdminSecurity = () => {
 
   const fetchHostelBlocks = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/admin/hostel-blocks', {
+      const response = await fetch(`${API_BASE_URL}/api/admin/hostel-blocks`, {
         headers: getAuthHeaders()
       });
       const data = await response.json();
@@ -62,7 +63,7 @@ const AdminSecurity = () => {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:5000/api/admin/users?role=security', {
+      const response = await fetch(`${API_BASE_URL}/api/admin/users?role=security`, {
         headers: getAuthHeaders()
       });
 
@@ -169,8 +170,8 @@ const AdminSecurity = () => {
     try {
       const isAdd = modalMode === 'add';
       const url = isAdd
-        ? 'http://localhost:5000/api/admin/user'
-        : `http://localhost:5000/api/admin/user/${selectedStaff.id}`;
+        ? `${API_BASE_URL}/api/admin/user`
+        : `${API_BASE_URL}/api/admin/user/${selectedStaff.id}`;
       const method = isAdd ? 'POST' : 'PUT';
 
       const payload = isAdd
@@ -214,7 +215,7 @@ const AdminSecurity = () => {
       const currentStatus = isAdd ? 'active' : selectedStaff.statusKey;
 
       if (targetStatus !== currentStatus) {
-        await fetch(`http://localhost:5000/api/admin/user/${isAdd ? data.id : selectedStaff.id}/status`, {
+        await fetch(`${API_BASE_URL}/api/admin/user/${isAdd ? data.id : selectedStaff.id}/status`, {
           method: 'PUT',
           headers: getAuthHeaders(true),
           body: JSON.stringify({ status: targetStatus })
@@ -269,7 +270,7 @@ const AdminSecurity = () => {
     setPasswordError('');
 
     try {
-      const response = await fetch(`http://localhost:5000/api/admin/user/${selectedStaff.id}/password`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/user/${selectedStaff.id}/password`, {
         method: 'PUT',
         headers: getAuthHeaders(true),
         body: JSON.stringify({ password: passwordFormData.password })
@@ -302,7 +303,7 @@ const AdminSecurity = () => {
   const handleDelete = async (staffId) => {
     setDeletingId(staffId);
     try {
-      const response = await fetch(`http://localhost:5000/api/admin/user/${staffId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/user/${staffId}`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
@@ -324,7 +325,7 @@ const AdminSecurity = () => {
   const handleStatusToggle = async (staff) => {
     const newStatus = staff.statusKey === 'active' ? 'inactive' : 'active';
     try {
-      const response = await fetch(`http://localhost:5000/api/admin/user/${staff.id}/status`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/user/${staff.id}/status`, {
         method: 'PUT',
         headers: getAuthHeaders(true),
         body: JSON.stringify({ status: newStatus })

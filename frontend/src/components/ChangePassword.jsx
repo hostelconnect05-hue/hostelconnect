@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { API_BASE_URL } from '../utils/config.js';
 import '../styles/change-password.css';
 
 const ChangePassword = ({ userId, onClose }) => {
@@ -49,7 +50,7 @@ const ChangePassword = ({ userId, onClose }) => {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:5000/api/user/change-password', {
+      const response = await fetch(`${API_BASE_URL}/api/user/change-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
