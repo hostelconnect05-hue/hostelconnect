@@ -36,10 +36,13 @@ app = Flask(__name__)
 # Frontend URL (used for CORS and links in emails)
 FRONTEND_URL = os.getenv('FRONTEND_URL', '')
 
-# CORS Configuration (allow any origin by default)
-# Use FRONTEND_URL or explicit CORS_ORIGINS if provided.
-CORS_ORIGINS = os.getenv('CORS_ORIGINS') or FRONTEND_URL or '*'
-CORS(app, resources={r"/*": {"origins": CORS_ORIGINS}}, supports_credentials=True)
+# CORS Configuration
+CORS(app,
+     resources={r"/*": {"origins": [
+         "https://hostelconnect-tau.vercel.app",
+         "*"
+     ]}},
+     supports_credentials=True)
 
 # Flask Secret Key
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY') or secrets.token_hex(32)
