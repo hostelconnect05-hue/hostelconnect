@@ -663,7 +663,7 @@ def update_room_occupancy(actual_counts):
     if not connection:
         return
 
-    cursor = connection.cursor(dictionary=True)
+    cursor = connection.cursor()
     try:
         for room_id, actual_count in actual_counts.items():
             cursor.execute("SELECT capacity FROM rooms WHERE id = %s", (room_id,))
@@ -1047,7 +1047,7 @@ def process_security_monitoring_cycle():
     if not connection:
         return
 
-    cursor = connection.cursor(dictionary=True)
+    cursor = connection.cursor()
     now_time = datetime.now()
 
     cursor.execute("""
@@ -1418,7 +1418,7 @@ def process_leave_monitoring_cycle():
     if not connection:
         return
 
-    cursor = connection.cursor(dictionary=True)
+    cursor = connection.cursor()
     now_time = datetime.now()
     today = now_time.date()
     important_event_dates = get_important_hostel_event_dates(cursor)
@@ -1769,7 +1769,7 @@ def process_complaint_monitoring_cycle():
     if not connection:
         return
 
-    cursor = connection.cursor(dictionary=True)
+    cursor = connection.cursor()
 
     cursor.execute("""
         SELECT c.id, c.category, c.title, c.description, c.status, c.priority, c.ai_priority,
@@ -2139,7 +2139,7 @@ def process_outpass_monitoring_cycle():
     if not connection:
         return
 
-    cursor = connection.cursor(dictionary=True)
+    cursor = connection.cursor()
     now_time = datetime.now()
 
     cursor.execute("""
@@ -2750,7 +2750,7 @@ def get_approved_outpasses():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         query = """
             SELECT o.*, s.roll_number, r.room_number, s.phone as student_phone,
@@ -2801,7 +2801,7 @@ def get_warden_outpass_alerts():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         query = """
             SELECT o.*, s.roll_number, r.room_number, s.phone as student_phone,
@@ -2847,7 +2847,7 @@ def get_rejected_outpasses():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         query = """
             SELECT o.*, s.roll_number, r.room_number, s.phone as student_phone,
@@ -3072,7 +3072,7 @@ def login():
         if not connection:
             return api_error('DB_CONNECTION_FAILED', 'Database connection failed', 500)
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         # Query user by email, roll number, or staff ID
         query = """
@@ -3200,7 +3200,7 @@ def change_password():
                 'message': 'Database connection failed'
             }), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         # Get current user password hash
         cursor.execute("SELECT password FROM users WHERE id = %s AND status = 'active'", (user_id,))
@@ -3258,7 +3258,7 @@ def create_demo_users():
                 'message': 'Database connection failed'
             }), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         # Demo users with hashed passwords
         demo_users = [
@@ -3313,7 +3313,7 @@ def create_demo_student():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # Get student user_id
         cursor.execute("SELECT id FROM users WHERE email = 'student@hostel.edu'")
@@ -3377,7 +3377,7 @@ def get_student_profile(user_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         query = """
             SELECT s.*, u.name, u.email, u.status, u.created_at, 
@@ -3413,7 +3413,7 @@ def get_student_room_details(user_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         cursor.execute("SELECT id, room_id FROM students WHERE user_id = %s", (user_id,))
         student = cursor.fetchone()
@@ -3486,7 +3486,7 @@ def submit_room_change_request():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         # Ensure table exists
         cursor.execute("""
@@ -3577,7 +3577,7 @@ def get_student_outpasses(user_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # First get student_id from user_id
         cursor.execute("SELECT id FROM students WHERE user_id = %s", (user_id,))
@@ -3617,7 +3617,7 @@ def get_student_complaints(user_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # First get student_id and room_id from user_id
         cursor.execute("SELECT id, room_id FROM students WHERE user_id = %s", (user_id,))
@@ -3678,7 +3678,7 @@ def get_student_leaves(user_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # First get student_id from user_id
         cursor.execute("SELECT id FROM students WHERE user_id = %s", (user_id,))
@@ -3717,7 +3717,7 @@ def get_student_parcels(user_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # First get student_id from user_id
         cursor.execute("SELECT id FROM students WHERE user_id = %s", (user_id,))
@@ -3790,7 +3790,7 @@ def create_outpass():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
         
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # Get actual student_id from user_id
         cursor.execute("SELECT id FROM students WHERE user_id = %s", (student_id,))
@@ -3872,7 +3872,7 @@ def send_outpass_otp(outpass_id):
         if not connection:
             return api_error('DB_CONNECTION_FAILED', 'Database connection failed', 500)
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # Get outpass details with parent information
         cursor.execute("""
@@ -4115,7 +4115,7 @@ def verify_outpass_otp(outpass_id):
         if not connection:
             return api_error('DB_CONNECTION_FAILED', 'Database connection failed', 500)
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # Get outpass with OTP details
         cursor.execute("""
@@ -4252,7 +4252,7 @@ def create_complaint():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
         
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # Get actual student_id from user_id
         cursor.execute("SELECT id FROM students WHERE user_id = %s", (student_id,))
@@ -4385,7 +4385,7 @@ def create_leave():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
         
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # Get actual student_id from user_id
         cursor.execute("SELECT id FROM students WHERE user_id = %s", (student_id,))
@@ -4447,7 +4447,7 @@ def manage_holiday_mode():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # Ensure system_settings table exists
         cursor.execute("""
@@ -4510,7 +4510,7 @@ def get_warden_recent_activities():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         activities = []
         
@@ -4620,7 +4620,7 @@ def get_warden_students():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         query = """
             SELECT s.*, u.name, u.email, u.status, b.block_name, r.room_number
@@ -4698,7 +4698,7 @@ def get_warden_dashboard():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         stats = {}
 
         cursor.execute("SELECT COUNT(*) AS count FROM students WHERE registration_status = 'approved'")
@@ -4737,7 +4737,7 @@ def get_pending_outpasses():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         query = """
             SELECT o.*, s.roll_number, r.room_number, s.phone as student_phone,
@@ -4788,7 +4788,7 @@ def approve_outpass(outpass_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         query = """
             UPDATE outpasses 
@@ -4846,7 +4846,7 @@ def reject_outpass(outpass_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         query = """
             UPDATE outpasses 
@@ -4894,7 +4894,7 @@ def get_pending_leaves():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         query = """
             SELECT lr.*, 
@@ -4936,7 +4936,7 @@ def approve_leave(leave_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # Get leave details and student info
         cursor.execute("""
@@ -5005,7 +5005,7 @@ def reject_leave(leave_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # Get leave details and student info
         cursor.execute("""
@@ -5062,7 +5062,7 @@ def get_leave_history(roll_number):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         query = """
             SELECT lr.*, au.name as approved_by_name
@@ -5096,7 +5096,7 @@ def get_warden_leave_agentic_alerts():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         limit = int(request.args.get('limit', 100))
         limit = 100 if limit <= 0 or limit > 200 else limit
 
@@ -5176,7 +5176,7 @@ def get_weekly_leave_insights():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         data = fetch_weekly_leave_insights_data(cursor)
         cursor.close()
         connection.close()
@@ -5195,7 +5195,7 @@ def get_leave_agentic_monitor_payload():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         cursor.execute("""
             SELECT
@@ -5280,7 +5280,7 @@ def get_warden_security_agentic_alerts():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         limit = int(request.args.get('limit', 100))
         limit = 100 if limit <= 0 or limit > 200 else limit
         unread_only = request.args.get('unread_only', 'false').lower() == 'true'
@@ -5377,7 +5377,7 @@ def get_weekly_security_insights():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         insights = fetch_security_insights_data(cursor)
         cursor.close()
         connection.close()
@@ -5396,7 +5396,7 @@ def get_security_agentic_monitor_payload():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         cursor.execute("""
             SELECT
@@ -5469,7 +5469,7 @@ def get_colleges():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         if include_inactive:
             cursor.execute("SELECT id, name, status FROM colleges ORDER BY name")
         else:
@@ -5584,7 +5584,7 @@ def get_branches():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         if include_inactive:
             cursor.execute("SELECT id, name, status FROM branches ORDER BY name")
         else:
@@ -5697,7 +5697,7 @@ def get_all_complaints():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         query = """
                  SELECT c.*, 
@@ -5745,7 +5745,7 @@ def get_warden_complaint_agentic_alerts():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         limit = int(request.args.get('limit', 100))
         limit = 100 if limit <= 0 or limit > 200 else limit
 
@@ -5785,7 +5785,7 @@ def get_weekly_complaint_insights():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         insights = fetch_weekly_complaint_insights_data(cursor)
 
@@ -5809,7 +5809,7 @@ def get_complaint_agentic_monitor_payload():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         cursor.execute("""
             SELECT
@@ -5916,7 +5916,7 @@ def get_pending_complaints_warden():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         query = """
             SELECT c.*, 
@@ -5956,7 +5956,7 @@ def get_assigned_complaints_warden():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         query = """
             SELECT c.*, 
@@ -5996,7 +5996,7 @@ def get_resolved_complaints_warden():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         query = """
             SELECT c.*, 
@@ -6042,7 +6042,7 @@ def assign_complaint_warden(complaint_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # Verify complaint exists
         cursor.execute("SELECT id, status FROM complaints WHERE id = %s", (complaint_id,))
@@ -6094,7 +6094,7 @@ def get_warden_technicians():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         query = """
             SELECT 
@@ -6141,7 +6141,7 @@ def add_technician():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         # Check if email already exists
         cursor.execute("SELECT id FROM users WHERE email = %s", (data['email'],))
@@ -6199,7 +6199,7 @@ def update_technician(technician_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         # Get user_id from technician_id
         cursor.execute("SELECT user_id FROM technicians WHERE id = %s", (technician_id,))
@@ -6270,7 +6270,7 @@ def delete_technician(technician_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         # Get user_id
         cursor.execute("SELECT user_id FROM technicians WHERE id = %s", (technician_id,))
@@ -6307,7 +6307,7 @@ def update_technician_status(technician_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         cursor.execute("UPDATE technicians SET availability_status = %s WHERE id = %s", (status, technician_id))
         
@@ -6334,7 +6334,7 @@ def change_technician_password(technician_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         cursor.execute("SELECT user_id FROM technicians WHERE id = %s", (technician_id,))
         tech = cursor.fetchone()
         cursor.close()
@@ -6360,7 +6360,7 @@ def get_warden_profile(user_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         query = """
             SELECT u.id, u.name, u.email, u.status, u.created_at, u.staff_id,
@@ -6395,7 +6395,7 @@ def get_security_profile(user_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         query = """
             SELECT u.id, u.name, u.email, u.status, u.created_at, u.staff_id,
@@ -6429,7 +6429,7 @@ def get_technician_profile(user_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         query = """
             SELECT u.id, u.name, u.email, u.status, u.created_at, u.staff_id,
@@ -6465,7 +6465,7 @@ def get_admin_profile(user_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         query = """
             SELECT u.id, u.name, u.email, u.status, u.created_at
@@ -6497,7 +6497,7 @@ def get_room_change_requests():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # First, ensure the table exists
         cursor.execute("""
@@ -6578,7 +6578,7 @@ def approve_room_change(request_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # Get request details
         cursor.execute("""
@@ -6711,7 +6711,7 @@ def get_admin_dashboard():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         stats = {}
         
@@ -6781,7 +6781,7 @@ def get_admin_recent_activities():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         activities = []
 
@@ -6865,7 +6865,7 @@ def get_admin_pending_approvals():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         pending_items = []
 
         cursor.execute("""
@@ -6927,7 +6927,7 @@ def get_admin_reports_analytics():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         analytics = {}
         
@@ -7045,7 +7045,7 @@ def get_room_occupancy_trend():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         # Capacity (beds) based on current room capacities
         cursor.execute("SELECT COALESCE(SUM(capacity), 0) AS total_capacity FROM rooms")
@@ -7101,7 +7101,7 @@ def get_complaints_by_category():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         query = """
             SELECT category, COUNT(*) as count
@@ -7140,7 +7140,7 @@ def get_outpass_trend():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         query = """
             SELECT 
@@ -7176,7 +7176,7 @@ def get_leave_trend():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         query = """
             SELECT
@@ -7215,7 +7215,7 @@ def get_hostel_blocks():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         if requested_gender:
             query = "SELECT * FROM blocks WHERE block_gender = %s ORDER BY block_name"
@@ -7258,7 +7258,7 @@ def get_blocks():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         if requested_gender:
             query = "SELECT * FROM blocks WHERE block_gender = %s ORDER BY block_name"
@@ -7315,7 +7315,7 @@ def create_hostel_block():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         cursor.execute("SELECT id FROM blocks WHERE block_name = %s", (block_name,))
         existing = cursor.fetchone()
@@ -7366,7 +7366,7 @@ def get_rooms_by_block(block_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         query = "SELECT * FROM rooms WHERE block_id = %s ORDER BY room_number"
         cursor.execute(query, (block_id,))
@@ -7389,7 +7389,7 @@ def get_all_rooms_with_blocks():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         query = """
             SELECT 
@@ -7429,7 +7429,7 @@ def get_room_students(room_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         query = """
             SELECT s.id as student_id, u.name, s.roll_number, s.branch, s.year
@@ -7458,7 +7458,7 @@ def get_room_change_requests_for_room(room_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         query = """
             SELECT rcr.id, rcr.status, rcr.preference_reason, rcr.full_reason,
@@ -7501,7 +7501,7 @@ def update_hostel_block(block_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
         
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # Check if block exists
         cursor.execute("SELECT id FROM blocks WHERE id = %s", (block_id,))
@@ -7538,7 +7538,7 @@ def delete_hostel_block(block_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         cursor.execute("SELECT id, block_name FROM blocks WHERE id = %s", (block_id,))
         block = cursor.fetchone()
@@ -7596,7 +7596,7 @@ def update_rooms_in_block():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
         
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # Check if block exists
         cursor.execute("SELECT id FROM blocks WHERE id = %s", (block_id,))
@@ -7677,7 +7677,7 @@ def update_room(room_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
         
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # Check if room exists
         cursor.execute("SELECT id FROM rooms WHERE id = %s", (room_id,))
@@ -7713,7 +7713,7 @@ def delete_room(room_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
         
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # Check if room exists
         cursor.execute("SELECT id, room_number FROM rooms WHERE id = %s", (room_id,))
@@ -7767,7 +7767,7 @@ def create_room():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
         
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # Check if block exists
         cursor.execute("SELECT id FROM blocks WHERE id = %s", (block_id,))
@@ -7818,7 +7818,7 @@ def get_all_users():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         if role:
             query = """
@@ -7928,7 +7928,7 @@ def create_user():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
         
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # Check if user already exists
         cursor.execute("SELECT id FROM users WHERE email = %s", (email,))
@@ -8039,7 +8039,7 @@ def delete_user(user_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
         
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # Check if user exists
         cursor.execute("SELECT id, role FROM users WHERE id = %s", (user_id,))
@@ -8106,7 +8106,7 @@ def change_user_password(user_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
         
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # Check if user exists and load identifiers used by login lockout tracking.
         cursor.execute(
@@ -8176,7 +8176,7 @@ def update_user_details(user_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
         
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # Check if user exists and get role
         cursor.execute("SELECT id, name, role, staff_id FROM users WHERE id = %s", (user_id,))
@@ -8521,7 +8521,7 @@ def submit_student_registration():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
         
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         # Ensure preferred block belongs to the selected student gender
         cursor.execute(
@@ -8610,7 +8610,7 @@ def get_student_registration_status():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         if roll_number:
             cursor.execute("""
@@ -8671,7 +8671,7 @@ def get_pending_registrations():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         query = """
             SELECT 
@@ -8720,7 +8720,7 @@ def get_approved_registrations():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         query = """
             SELECT
@@ -8768,7 +8768,7 @@ def get_rejected_registrations():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         query = """
             SELECT
@@ -8816,7 +8816,7 @@ def get_warden_pending_registrations():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         query = """
             SELECT 
@@ -8865,7 +8865,7 @@ def get_warden_approved_registrations():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         query = """
             SELECT 
@@ -8914,7 +8914,7 @@ def get_warden_rejected_registrations():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         query = """
             SELECT 
@@ -8966,7 +8966,7 @@ def approve_registration(student_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # Check if student exists and fetch email + preferences
         cursor.execute("""
@@ -9141,7 +9141,7 @@ def reject_registration(student_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # Check if student exists and fetch email
         cursor.execute("""
@@ -9205,7 +9205,7 @@ def warden_approve_registration(student_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         # Check if student exists and fetch email + preferences
         cursor.execute("""
             SELECT s.id, s.user_id, s.preferred_block, s.room_preference, s.floor_preference, u.email, u.name 
@@ -9347,7 +9347,7 @@ def warden_reject_registration(student_id):
         connection = get_db_connection()
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         cursor.execute("""
             SELECT s.id, s.user_id, u.email, u.name 
             FROM students s 
@@ -9387,7 +9387,7 @@ def get_pending_complaints():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         query = """
             SELECT c.*, s.roll_number, u.name as student_name
@@ -9477,7 +9477,7 @@ def get_technician_complaints(user_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # Get technician ID from user_id
         cursor.execute("SELECT id FROM technicians WHERE user_id = %s", (user_id,))
@@ -9542,7 +9542,7 @@ def update_complaint_status(complaint_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # Check if complaint exists
         cursor.execute("SELECT id, status FROM complaints WHERE id = %s", (complaint_id,))
@@ -9606,7 +9606,7 @@ def create_visitor_entry():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # Get student details for logging
         cursor.execute("""
@@ -9669,7 +9669,7 @@ def get_security_students():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         query = """
             SELECT s.id, u.name, s.roll_number, r.room_number
@@ -9699,7 +9699,7 @@ def get_active_visitors():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         query = """
             SELECT v.*, u.name as student_name, st.roll_number, r.room_number
@@ -9730,7 +9730,7 @@ def checkout_visitor(visitor_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # Get visitor details with student info
         cursor.execute("""
@@ -9785,7 +9785,7 @@ def get_visitor_history():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         query = """
             SELECT v.*, u.name as student_name, st.roll_number, r.room_number
@@ -9817,7 +9817,7 @@ def get_security_logs():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # Get optional date filter from query params
         selected_date = request.args.get('date')
@@ -9868,7 +9868,7 @@ def get_approved_outpasses_for_security():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         query = """
             SELECT 
@@ -9940,7 +9940,7 @@ def mark_outpass_exit(outpass_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # Get outpass details with student info
         cursor.execute("""
@@ -10026,7 +10026,7 @@ def mark_outpass_return(outpass_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # Get outpass details with student info
         cursor.execute("""
@@ -10175,7 +10175,7 @@ def get_security_parcels():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # Get optional roll_number filter from query params
         roll_number = request.args.get('roll_number')
@@ -10276,7 +10276,7 @@ def notify_parcel_collection(parcel_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # Get parcel details with student info
         cursor.execute("""
@@ -10542,7 +10542,7 @@ def collect_parcel(parcel_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # Get parcel details with student info
         cursor.execute("""
@@ -10611,7 +10611,7 @@ def add_parcel():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # Get student by roll number
         cursor.execute("""
@@ -10706,7 +10706,7 @@ def debug_student_room(student_id):
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         cursor.execute("""
             SELECT s.id as student_id, s.user_id, s.room_id, u.name, u.email,
                    r.room_number, b.block_name
@@ -10734,7 +10734,7 @@ def recalculate_room_occupancy():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # First, get actual counts for each room
         cursor.execute("""
@@ -10794,7 +10794,7 @@ def verify_room_occupancy():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # Get actual counts for each room with students
         cursor.execute("""
@@ -10851,7 +10851,7 @@ def get_mess_menu():
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
         
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
         
         # Fetch all menu items
         cursor.execute("""
@@ -10968,7 +10968,7 @@ if __name__ == '__main__':
 
         connection = get_db_connection()
         if connection:
-            cursor = connection.cursor(dictionary=True)
+            cursor = connection.cursor()
             
             # Get actual counts
             cursor.execute("""
@@ -10988,3 +10988,4 @@ if __name__ == '__main__':
 
     port = int(os.getenv('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
+
