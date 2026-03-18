@@ -440,7 +440,7 @@ def _load_request_actor():
         g.request_actor = None
         return None
 
-    cursor = connection.cursor(dictionary=True)
+    cursor = connection.cursor()
     cursor.execute(
         "SELECT id, role, status FROM users WHERE id = %s AND status = 'active'",
         (user_id,)
@@ -511,7 +511,7 @@ def generate_staff_id(role, connection):
     }
     
     prefix = prefix_map.get(role, 'STF')
-    cursor = connection.cursor(dictionary=True)
+    cursor = connection.cursor()
     
     # Generate unique ID with bounded attempts to avoid infinite loops.
     for _ in range(2000):
