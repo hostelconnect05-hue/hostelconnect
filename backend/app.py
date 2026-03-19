@@ -23,6 +23,7 @@ from googleapiclient.discovery import build
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
+import resend
 from dotenv import load_dotenv
 from cloudinary_utils import init_cloudinary, upload_to_cloudinary
 
@@ -47,32 +48,34 @@ if not app.logger.handlers:
     logging.basicConfig(level=getattr(logging, LOG_LEVEL, logging.INFO))
 app.logger.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
 
-# Email Configuration - Support both SMTP and Gmail API
-USE_SMTP = os.getenv('EMAIL_USE_SMTP', 'true').lower() == 'true'
+# Email Configuration - Primary: Resend API, Fallback: SMTP and Gmail API
+USE_RESEND = os.getenv('EMAIL_USE_RESEND', 'true').lower() == 'true'
 
-if USE_SMTP:
-    # SMTP Configuration (Recommended)
-    SMTP_CONFIG = {
-        'smtp_server': os.getenv('SMTP_SERVER', 'smtp.gmail.com'),
-        'smtp_port': int(os.getenv('SMTP_PORT', 587)),
-        'sender_email': os.getenv('SMTP_EMAIL'),
-        'sender_password': os.getenv('SMTP_PASSWORD'),
-        'use_tls': True
-    }
-    if not SMTP_CONFIG['sender_email'] or not SMTP_CONFIG['sender_password']:
-        app.logger.error("SMTP credentials not configured properly")
-    print("Email mode: SMTP")
-    print(f"Sender email: {SMTP_CONFIG['sender_email']}")
-else:
-    # Gmail API Configuration (OAuth2)
-    CLIENT_SECRET_FILE = os.path.join(os.path.dirname(__file__), 'client_secret.json')
-    SENDER_EMAIL = 'hostelconnect05@gmail.com'
-    SCOPES = ['https://www.googleapis.com/auth/gmail.send']
-    print("Email mode: Gmail API")
-    CLIENT_SECRET_FILE = os.path.join(os.path.dirname(__file__), 'client_secret.json')
-    SENDER_EMAIL = 'hostelconnect05@gmail.com'
-    SCOPES = ['https://www.googleapis.com/auth/gmail.send']
-    print("Email mode: Gmail API")
+# Resend Configuration (Primary - works on all cloud platforms)
+if USE_RESEND:
+    RESEND_API_KEY = os.getenv('RESEND_API_KEY')
+    RESEND_FROM_EMAIL = os.getenv('RESEND_FROM_EMAIL', 'hostelconnect05@gmail.com')
+    if RESEND_API_KEY:
+        resend.api_key = RESEND_API_KEY
+        app.logger.info(f"[EMAIL] Email mode: Resend API from {RESEND_FROM_EMAIL}")
+        print(f"Email mode: Resend API from {RESEND_FROM_EMAIL}")
+    else:
+        app.logger.error("[EMAIL] Resend API key not configured")
+        USE_RESEND = False
+
+# Fallback SMTP Configuration
+SMTP_CONFIG = {
+    'smtp_server': os.getenv('SMTP_SERVER', 'smtp.gmail.com'),
+    'smtp_port': int(os.getenv('SMTP_PORT', 587)),
+    'sender_email': os.getenv('SMTP_EMAIL'),
+    'sender_password': os.getenv('SMTP_PASSWORD'),
+    'use_tls': True
+}
+
+# Fallback Gmail API Configuration (OAuth2)
+CLIENT_SECRET_FILE = os.path.join(os.path.dirname(__file__), 'client_secret.json')
+SENDER_EMAIL = 'hostelconnect05@gmail.com'
+SCOPES = ['https://www.googleapis.com/auth/gmail.send']
 
 def get_gmail_service():
     """Get authenticated Gmail API service"""
@@ -82,7 +85,7 @@ def get_gmail_service():
         service = build('gmail', 'v1', credentials=credentials)
         return service
     except Exception as e:
-        print(f"Error creating Gmail service: {str(e)}")
+        app.logger.error(f"[EMAIL] Error creating Gmail service: {str(e)}")
         return None
 
 # Database Configuration (MySQL / Railway / RDS)
@@ -2884,24 +2887,66 @@ def get_rejected_outpasses():
 
 
 def send_email(recipient_email, subject, html_body):
-    """Send email using SMTP or Gmail API"""
+    """Send email using Resend API (primary) with fallback to SMTP or Gmail API"""
     try:
         app.logger.info(f"[EMAIL] Starting email send to {recipient_email}")
         app.logger.info(f"[EMAIL] Subject: {subject}")
-        app.logger.info(f"[EMAIL] Method: {'SMTP' if USE_SMTP else 'Gmail API'}")
         
-        if USE_SMTP:
-            result = send_email_smtp(recipient_email, subject, html_body)
-        else:
-            result = send_email_gmail_api(recipient_email, subject, html_body)
+        # Try Resend API first (primary method)
+        if USE_RESEND:
+            app.logger.info("[EMAIL] Attempting to send via Resend API...")
+            result = send_email_resend(recipient_email, subject, html_body)
+            if result:
+                app.logger.info(f"[EMAIL] Successfully sent via Resend API to {recipient_email}")
+                return True
+            else:
+                app.logger.warning(f"[EMAIL] Resend API failed, trying fallback method...")
         
-        app.logger.info(f"[EMAIL] Result: {result} for {recipient_email}")
-        return result
+        # Fallback to SMTP
+        app.logger.info("[EMAIL] Attempting to send via SMTP...")
+        result = send_email_smtp(recipient_email, subject, html_body)
+        if result:
+            app.logger.info(f"[EMAIL] Successfully sent via SMTP to {recipient_email}")
+            return True
+        
+        # Final fallback to Gmail API
+        app.logger.info("[EMAIL] Attempting to send via Gmail API...")
+        result = send_email_gmail_api(recipient_email, subject, html_body)
+        if result:
+            app.logger.info(f"[EMAIL] Successfully sent via Gmail API to {recipient_email}")
+            return True
+        
+        app.logger.error(f"[EMAIL] All methods failed for {recipient_email}")
+        return False
             
     except Exception as e:
         app.logger.error(f"[EMAIL] Error in send_email wrapper to {recipient_email}:")
         app.logger.error(f"[EMAIL] Error type: {type(e).__name__}")
         app.logger.error(f"[EMAIL] Error message: {str(e)}", exc_info=True)
+        return False
+
+def send_email_resend(recipient_email, subject, html_body):
+    """Send email using Resend API"""
+    try:
+        app.logger.info(f"[EMAIL-RESEND] Sending email to {recipient_email}...")
+        email = resend.Emails.send({
+            "from": RESEND_FROM_EMAIL,
+            "to": recipient_email,
+            "subject": subject,
+            "html": html_body,
+        })
+        
+        message_id = email.get('id')
+        if message_id:
+            app.logger.info(f"[EMAIL-RESEND] Email sent successfully to {recipient_email}, Message ID: {message_id}")
+            return True
+        else:
+            error_msg = email.get('message', 'Unknown error')
+            app.logger.error(f"[EMAIL-RESEND] Failed to send email to {recipient_email}: {error_msg}")
+            return False
+            
+    except Exception as e:
+        app.logger.error(f"[EMAIL-RESEND] Error sending email to {recipient_email}: {str(e)}", exc_info=True)
         return False
 
 def send_email_smtp(recipient_email, subject, html_body):
