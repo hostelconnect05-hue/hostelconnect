@@ -38,11 +38,22 @@ FRONTEND_URL = os.getenv('FRONTEND_URL', '')
 
 # CORS Configuration
 CORS(app,
-     resources={r"/*": {"origins": [
-         "https://hostelconnect-tau.vercel.app",
-         "*"
-     ]}},
-     supports_credentials=True)
+     resources={r"/*": {
+         "origins": [
+             "https://hostelconnect-tau.vercel.app",
+             "http://localhost:3000",
+             "http://localhost:5173",
+             "http://localhost:5000",
+             "http://127.0.0.1:3000",
+             "http://127.0.0.1:5173",
+             "http://127.0.0.1:5000"
+         ],
+         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+         "allow_headers": ["Content-Type", "Authorization", "X-User-Id", "X-User-Role", "X-Request-Id"],
+         "expose_headers": ["X-Request-Id", "X-Total-Count"],
+         "supports_credentials": True,
+         "max_age": 3600
+     }})
 
 # Flask Secret Key
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY') or secrets.token_hex(32)
