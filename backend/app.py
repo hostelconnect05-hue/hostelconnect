@@ -3594,11 +3594,12 @@ def get_student_outpasses(user_id):
         if not student:
             return jsonify({'success': False, 'message': 'Student not found'}), 404
         
-        # Get outpasses for this student
+        # Get outpasses for this student with parent email
         query = """
-            SELECT o.*, u.name as approved_by_name
+            SELECT o.*, u.name as approved_by_name, s.parent_email
             FROM outpasses o
             LEFT JOIN users u ON o.approved_by = u.id
+            JOIN students s ON o.student_id = s.id
             WHERE o.student_id = %s
             ORDER BY o.created_at DESC
         """

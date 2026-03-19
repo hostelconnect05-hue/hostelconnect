@@ -692,7 +692,7 @@ const StudentOutpass = () => {
                     <strong>Student:</strong> {currentUser?.name || 'Student'}
                   </div>
                   <div style={{ fontSize: '14px', color: '#6b7280', marginBottom: '0.5rem' }}>
-                    <strong>Parent Contact:</strong> +91-XXXX-XXX-XXX
+                    <strong>Parent Email:</strong> {currentOutpassForOtp?.parent_email || 'N/A'}
                   </div>
                   <div style={{ fontSize: '14px', color: '#6b7280' }}>
                     <strong>Destination:</strong> {currentOutpassForOtp.destination}
