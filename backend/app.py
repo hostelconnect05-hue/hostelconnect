@@ -36,24 +36,8 @@ app = Flask(__name__)
 # Frontend URL (used for CORS and links in emails)
 FRONTEND_URL = os.getenv('FRONTEND_URL', '')
 
-# CORS Configuration
-CORS(app,
-     resources={r"/*": {
-         "origins": [
-             "https://hostelconnect-tau.vercel.app",
-             "http://localhost:3000",
-             "http://localhost:5173",
-             "http://localhost:5000",
-             "http://127.0.0.1:3000",
-             "http://127.0.0.1:5173",
-             "http://127.0.0.1:5000"
-         ],
-         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-         "allow_headers": ["Content-Type", "Authorization", "X-User-Id", "X-User-Role", "X-Request-Id"],
-         "expose_headers": ["X-Request-Id", "X-Total-Count"],
-         "supports_credentials": True,
-         "max_age": 3600
-     }})
+# CORS Configuration - permissive for development, can be restricted in production
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
 # Flask Secret Key
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY') or secrets.token_hex(32)
@@ -342,6 +326,16 @@ def append_request_metadata(response):
         duration_ms=duration_ms,
         remote_addr=request.remote_addr
     )
+    return response
+
+
+@app.after_request
+def after_request(response):
+    """Add CORS headers to EVERY response, including errors (500s, etc)"""
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type,Authorization,X-User-Id,X-User-Role,X-Request-Id"
+    response.headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,DELETE,OPTIONS,PATCH"
+    response.headers["Access-Control-Max-Age"] = "3600"
     return response
 
 
@@ -2892,20 +2886,22 @@ def get_rejected_outpasses():
 def send_email(recipient_email, subject, html_body):
     """Send email using SMTP or Gmail API"""
     try:
-        print(f"\n=== Starting email send process ===")
-        print(f"Recipient: {recipient_email}")
-        print(f"Subject: {subject}")
-        print(f"Method: {'SMTP' if USE_SMTP else 'Gmail API'}")
+        app.logger.info(f"[EMAIL] Starting email send to {recipient_email}")
+        app.logger.info(f"[EMAIL] Subject: {subject}")
+        app.logger.info(f"[EMAIL] Method: {'SMTP' if USE_SMTP else 'Gmail API'}")
         
         if USE_SMTP:
-            return send_email_smtp(recipient_email, subject, html_body)
+            result = send_email_smtp(recipient_email, subject, html_body)
         else:
-            return send_email_gmail_api(recipient_email, subject, html_body)
+            result = send_email_gmail_api(recipient_email, subject, html_body)
+        
+        app.logger.info(f"[EMAIL] Result: {result} for {recipient_email}")
+        return result
             
     except Exception as e:
-        print(f"\nERROR in send_email wrapper:")
-        print(f"Error type: {type(e).__name__}")
-        print(f"Error message: {str(e)}")
+        app.logger.error(f"[EMAIL] Error in send_email wrapper to {recipient_email}:")
+        app.logger.error(f"[EMAIL] Error type: {type(e).__name__}")
+        app.logger.error(f"[EMAIL] Error message: {str(e)}", exc_info=True)
         return False
 
 def send_email_smtp(recipient_email, subject, html_body):
@@ -2922,46 +2918,48 @@ def send_email_smtp(recipient_email, subject, html_body):
         message.attach(part)
         
         # Send email via SMTP
-        print(f"Connecting to {SMTP_CONFIG['smtp_server']}:{SMTP_CONFIG['smtp_port']}...")
-        with smtplib.SMTP(SMTP_CONFIG['smtp_server'], SMTP_CONFIG['smtp_port']) as server:
+        app.logger.info(f"[EMAIL-SMTP] Connecting to {SMTP_CONFIG['smtp_server']}:{SMTP_CONFIG['smtp_port']}...")
+        with smtplib.SMTP(SMTP_CONFIG['smtp_server'], SMTP_CONFIG['smtp_port'], timeout=10) as server:
             if SMTP_CONFIG['use_tls']:
-                print("Starting TLS connection...")
+                app.logger.info("[EMAIL-SMTP] Starting TLS connection...")
                 server.starttls()
             
             if not SMTP_CONFIG['sender_password']:
-                print("ERROR: SMTP sender password missing. Set SENDER_PASSWORD env var.")
+                app.logger.error("[EMAIL-SMTP] ERROR: SMTP sender password missing. Set SENDER_PASSWORD env var.")
                 return False
 
-            print(f"Logging in as {SMTP_CONFIG['sender_email']}...")
+            app.logger.info(f"[EMAIL-SMTP] Logging in as {SMTP_CONFIG['sender_email']}...")
             server.login(SMTP_CONFIG['sender_email'], SMTP_CONFIG['sender_password'])
             
-            print(f"Sending email to {recipient_email}...")
+            app.logger.info(f"[EMAIL-SMTP] Sending email to {recipient_email}...")
             server.sendmail(SMTP_CONFIG['sender_email'], recipient_email, message.as_string())
         
-        print(f"Email sent successfully to {recipient_email}")
-        print(f"=== Email send complete ===")
+        app.logger.info(f"[EMAIL-SMTP] Email sent successfully to {recipient_email}")
         return True
+    except smtplib.SMTPAuthenticationError as auth_error:
+        app.logger.error(f"[EMAIL-SMTP] Authentication error to {recipient_email}: {str(auth_error)}")
+        return False
+    except smtplib.SMTPException as smtp_error:
+        app.logger.error(f"[EMAIL-SMTP] SMTP error to {recipient_email}: {str(smtp_error)}")
+        return False
     except Exception as e:
-        print(f"\nERROR sending email via SMTP:")
-        print(f"Error type: {type(e).__name__}")
-        print(f"Error message: {str(e)}")
-        import traceback
-        print(traceback.format_exc())
-        print(f"=== Email send failed ===")
+        app.logger.error(f"[EMAIL-SMTP] Error sending email to {recipient_email}:")
+        app.logger.error(f"[EMAIL-SMTP] Error type: {type(e).__name__}")
+        app.logger.error(f"[EMAIL-SMTP] Error message: {str(e)}", exc_info=True)
         return False
 
 def send_email_gmail_api(recipient_email, subject, html_body):
     """Send email using Gmail API"""
     try:
-        print(f"Client secret file exists: {os.path.exists(CLIENT_SECRET_FILE)}")
-        print(f"Client secret path: {CLIENT_SECRET_FILE}")
+        app.logger.info(f"[EMAIL-GMAIL] Client secret file exists: {os.path.exists(CLIENT_SECRET_FILE)}")
+        app.logger.info(f"[EMAIL-GMAIL] Client secret path: {CLIENT_SECRET_FILE}")
         
         service = get_gmail_service()
         if not service:
-            print(f"ERROR: Failed to get Gmail service for {recipient_email}")
+            app.logger.error(f"[EMAIL-GMAIL] ERROR: Failed to get Gmail service for {recipient_email}")
             return False
         
-        print("Gmail service created successfully")
+        app.logger.info("[EMAIL-GMAIL] Gmail service created successfully")
         
         # Create message
         message = MIMEMultipart('alternative')
@@ -2977,19 +2975,16 @@ def send_email_gmail_api(recipient_email, subject, html_body):
         raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
         send_message = {'raw': raw_message}
         
+        app.logger.info(f"[EMAIL-GMAIL] Sending via Gmail API to {recipient_email}...")
         result = service.users().messages().send(userId='me', body=send_message).execute()
         
-        print(f"Email sent successfully to {recipient_email}")
-        print(f"Message ID: {result.get('id')}")
-        print(f"=== Email send complete ===")
+        app.logger.info(f"[EMAIL-GMAIL] Email sent successfully to {recipient_email}")
+        app.logger.info(f"[EMAIL-GMAIL] Message ID: {result.get('id')}")
         return True
     except Exception as e:
-        print(f"\nERROR sending email via Gmail API:")
-        print(f"Error type: {type(e).__name__}")
-        print(f"Error message: {str(e)}")
-        import traceback
-        print(traceback.format_exc())
-        print(f"=== Email send failed ===")
+        app.logger.error(f"[EMAIL-GMAIL] Error sending email via Gmail API to {recipient_email}:")
+        app.logger.error(f"[EMAIL-GMAIL] Error type: {type(e).__name__}")
+        app.logger.error(f"[EMAIL-GMAIL] Error message: {str(e)}", exc_info=True)
         return False
 
 # Test database connection on startup
@@ -3877,30 +3872,43 @@ def create_outpass():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
-@app.route('/api/student/outpass/<int:outpass_id>/send-otp', methods=['POST'])
+@app.route('/api/student/outpass/<int:outpass_id>/send-otp', methods=['POST', 'OPTIONS'])
 def send_outpass_otp(outpass_id):
     """Send OTP to parent for outpass verification"""
+    # Handle OPTIONS request (pre-flight CORS)
+    if request.method == 'OPTIONS':
+        return '', 204
+    
     try:
+        app.logger.info(f"[OTP] Starting OTP send for outpass_id={outpass_id}")
         connection = get_db_connection()
         if not connection:
+            app.logger.error(f"[OTP] Failed to get DB connection for outpass_id={outpass_id}")
             return api_error('DB_CONNECTION_FAILED', 'Database connection failed', 500)
 
         cursor = connection.cursor()
         
         # Get outpass details with parent information
-        cursor.execute("""
-            SELECT o.*, s.parent_phone, s.parent_email, s.parent_name, 
-                   u.name as student_name, u.email as student_email
-            FROM outpasses o
-            JOIN students s ON o.student_id = s.id
-            JOIN users u ON s.user_id = u.id
-            WHERE o.id = %s AND o.status = 'pending_otp'
-        """, (outpass_id,))
+        try:
+            cursor.execute("""
+                SELECT o.*, s.parent_phone, s.parent_email, s.parent_name, 
+                       u.name as student_name, u.email as student_email
+                FROM outpasses o
+                JOIN students s ON o.student_id = s.id
+                JOIN users u ON s.user_id = u.id
+                WHERE o.id = %s AND o.status = 'pending_otp'
+            """, (outpass_id,))
+        except Exception as db_error:
+            app.logger.error(f"[OTP] DB query error for outpass_id={outpass_id}: {str(db_error)}")
+            cursor.close()
+            connection.close()
+            return api_error('DB_QUERY_ERROR', f'Database query failed: {str(db_error)}', 500)
         
         outpass = cursor.fetchone()
         if not outpass:
             cursor.close()
             connection.close()
+            app.logger.warning(f"[OTP] Outpass not found or not OTP eligible: outpass_id={outpass_id}")
             log_audit_event(
                 action='outpass_otp_send',
                 outcome='failure',
@@ -3915,6 +3923,7 @@ def send_outpass_otp(outpass_id):
         if not parent_email:
             cursor.close()
             connection.close()
+            app.logger.warning(f"[OTP] Parent email missing for outpass_id={outpass_id}")
             log_audit_event(
                 action='outpass_otp_send',
                 outcome='failure',
@@ -3926,7 +3935,6 @@ def send_outpass_otp(outpass_id):
         
         # Check if OTP was already sent recently (within 2 minutes to prevent spam)
         if outpass.get('otp_sent_at'):
-            from datetime import datetime, timedelta
             otp_sent_time = outpass['otp_sent_at']
             if isinstance(otp_sent_time, str):
                 otp_sent_time = datetime.fromisoformat(otp_sent_time)
@@ -3936,6 +3944,7 @@ def send_outpass_otp(outpass_id):
                 remaining_seconds = int((timedelta(minutes=2) - time_since_sent).total_seconds())
                 cursor.close()
                 connection.close()
+                app.logger.info(f"[OTP] Rate limited - OTP already sent for outpass_id={outpass_id}, retry_after={remaining_seconds}s")
                 log_audit_event(
                     action='outpass_otp_send',
                     outcome='failure',
@@ -3957,26 +3966,33 @@ def send_outpass_otp(outpass_id):
         # Generate secure 6-digit OTP and store only a hash.
         otp_code = generate_otp_code()
         otp_hash = hash_otp_code(otp_code)
+        app.logger.info(f"[OTP] Generated OTP for outpass_id={outpass_id}, code={otp_code}, hash={otp_hash[:8]}...")
         
         # Update outpass with OTP code and sent timestamp
-        cursor.execute("""
-            UPDATE outpasses 
-            SET otp_code = %s, otp_sent_at = NOW()
-            WHERE id = %s
-        """, (otp_hash, outpass_id))
-        connection.commit()
+        try:
+            cursor.execute("""
+                UPDATE outpasses 
+                SET otp_code = %s, otp_sent_at = NOW()
+                WHERE id = %s
+            """, (otp_hash, outpass_id))
+            connection.commit()
+            app.logger.info(f"[OTP] Stored OTP hash in DB for outpass_id={outpass_id}")
+        except Exception as update_error:
+            cursor.close()
+            connection.close()
+            app.logger.error(f"[OTP] Failed to update DB with OTP for outpass_id={outpass_id}: {str(update_error)}")
+            return api_error('DB_UPDATE_FAILED', f'Failed to update OTP: {str(update_error)}', 500)
         
         # Send OTP via email to parent ONLY
-        parent_email = outpass['parent_email']
         parent_name = outpass.get('parent_name', 'Parent/Guardian')
-        parent_phone = outpass.get('parent_phone', 'Not provided')
         
-        if parent_email:
-            exit_date_text = 'N/A'
-            exit_time_text = 'N/A'
-            entry_date_text = 'N/A'
-            entry_time_text = 'N/A'
+        # Build email body
+        exit_date_text = 'N/A'
+        exit_time_text = 'N/A'
+        entry_date_text = 'N/A'
+        entry_time_text = 'N/A'
 
+        try:
             out_date_value = outpass.get('out_date')
             if isinstance(out_date_value, datetime):
                 exit_date_text = out_date_value.strftime('%d %b %Y')
@@ -4026,85 +4042,106 @@ def send_outpass_otp(outpass_id):
                         entry_time_text = expected_parts[1]
                     else:
                         entry_date_text = expected_return_value
+        except Exception as date_error:
+            app.logger.warning(f"[OTP] Error formatting dates for outpass_id={outpass_id}: {str(date_error)}")
 
-            subject = f"🔐 Outpass OTP Verification - {outpass['student_name']}"
-            body = f"""
-            <html>
-            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-                <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
-                    <h2 style="color: #3b82f6;">🎓 HostelConnect - Outpass OTP Verification</h2>
-                    <p>Dear {parent_name},</p>
-                    <p>Your ward <strong>{outpass['student_name']}</strong> has requested an outpass during college holiday mode.</p>
-                    
-                    <div style="background: #f0f9ff; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                        <p style="margin: 5px 0;"><strong>Destination:</strong> {outpass['destination']}</p>
-                        <p style="margin: 5px 0;"><strong>Exit Date:</strong> {exit_date_text}</p>
-                        <p style="margin: 5px 0;"><strong>Exit Time:</strong> {exit_time_text}</p>
-                        <p style="margin: 5px 0;"><strong>Entry Date:</strong> {entry_date_text}</p>
-                        <p style="margin: 5px 0;"><strong>Entry Time:</strong> {entry_time_text}</p>
-                        <p style="margin: 5px 0;"><strong>Reason:</strong> {outpass['reason']}</p>
-                    </div>
-                    
-                    <div style="background: #fef3c7; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
-                        <p style="font-size: 14px; margin: 0 0 10px 0;">Your One-Time Password (OTP) is:</p>
-                        <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #3b82f6; margin: 10px 0;">
-                            {otp_code}
-                        </p>
-                        <p style="font-size: 12px; color: #92400e; margin: 10px 0 0 0;">
-                            ⚠️ Valid for 30 minutes. Do not share this OTP with anyone.
-                        </p>
-                    </div>
-                    
-                    <p style="font-size: 14px; color: #6b7280;">
-                        If you approve this outpass, please share this OTP with your ward. 
-                        If you did not authorize this request, please contact the hostel warden immediately.
+        subject = f"🔐 Outpass OTP Verification - {outpass['student_name']}"
+        body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+                <h2 style="color: #3b82f6;">🎓 HostelConnect - Outpass OTP Verification</h2>
+                <p>Dear {parent_name},</p>
+                <p>Your ward <strong>{outpass['student_name']}</strong> has requested an outpass during college holiday mode.</p>
+                
+                <div style="background: #f0f9ff; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                    <p style="margin: 5px 0;"><strong>Destination:</strong> {outpass['destination']}</p>
+                    <p style="margin: 5px 0;"><strong>Exit Date:</strong> {exit_date_text}</p>
+                    <p style="margin: 5px 0;"><strong>Exit Time:</strong> {exit_time_text}</p>
+                    <p style="margin: 5px 0;"><strong>Entry Date:</strong> {entry_date_text}</p>
+                    <p style="margin: 5px 0;"><strong>Entry Time:</strong> {entry_time_text}</p>
+                    <p style="margin: 5px 0;"><strong>Reason:</strong> {outpass['reason']}</p>
+                </div>
+                
+                <div style="background: #fef3c7; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
+                    <p style="font-size: 14px; margin: 0 0 10px 0;">Your One-Time Password (OTP) is:</p>
+                    <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #3b82f6; margin: 10px 0;">
+                        {otp_code}
                     </p>
-                    
-                    <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
-                    <p style="font-size: 12px; color: #9ca3af;">
-                        — HostelConnect Management System<br>
-                        This is an automated message. Please do not reply to this email.
+                    <p style="font-size: 12px; color: #92400e; margin: 10px 0 0 0;">
+                        ⚠️ Valid for 30 minutes. Do not share this OTP with anyone.
                     </p>
                 </div>
-            </body>
-            </html>
-            """
-            
+                
+                <p style="font-size: 14px; color: #6b7280;">
+                    If you approve this outpass, please share this OTP with your ward. 
+                    If you did not authorize this request, please contact the hostel warden immediately.
+                </p>
+                
+                <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
+                <p style="font-size: 12px; color: #9ca3af;">
+                    — HostelConnect Management System<br>
+                    This is an automated message. Please do not reply to this email.
+                </p>
+            </div>
+        </body>
+        </html>
+        """
+        
+        # Send email with error handling
+        email_sent = False
+        email_error = None
+        try:
+            app.logger.info(f"[OTP] Sending email to {parent_email} for outpass_id={outpass_id}")
             email_sent = send_email(parent_email, subject, body)
-            
-            cursor.close()
-            connection.close()
-            log_audit_event(
-                action='outpass_otp_send',
-                outcome='success',
-                target_type='outpass',
-                target_id=outpass_id,
-                details={'email_sent': email_sent, 'parent_email': parent_email}
-            )
+            app.logger.info(f"[OTP] Email send result: {email_sent} for outpass_id={outpass_id}")
+        except Exception as email_exc:
+            email_error = str(email_exc)
+            app.logger.error(f"[OTP] Email sending exception for outpass_id={outpass_id}: {email_error}")
+            app.logger.error(f"[OTP] Email exception type: {type(email_exc).__name__}", exc_info=True)
+        
+        cursor.close()
+        connection.close()
+        
+        # Even if email failed, log success since OTP was generated and stored
+        log_audit_event(
+            action='outpass_otp_send',
+            outcome='success' if email_sent else 'partial',
+            target_type='outpass',
+            target_id=outpass_id,
+            details={
+                'email_sent': email_sent,
+                'parent_email': parent_email,
+                'email_error': email_error
+            }
+        )
 
+        if email_sent:
             return api_success(
                 {
-                    'email_sent': email_sent,
+                    'email_sent': True,
                     'parent_email': parent_email
                 },
                 message=f'OTP sent successfully to parent email: {parent_email}',
                 status_code=200
             )
         else:
-            cursor.close()
-            connection.close()
-            log_audit_event(
-                action='outpass_otp_send',
-                outcome='failure',
-                target_type='outpass',
-                target_id=outpass_id,
-                details={'reason': 'parent_email_not_available'}
+            # OTP was generated but email failed
+            return api_error(
+                'EMAIL_SEND_FAILED',
+                f'OTP generated but email sending failed: {email_error or "Unknown error"}',
+                500,
+                details={
+                    'otp_generated': True,
+                    'email_error': email_error,
+                    'parent_email': parent_email
+                }
             )
-            return api_error('PARENT_EMAIL_MISSING', 'Parent email not available. Please update profile.', 400)
             
     except Exception as e:
+        app.logger.error(f"[OTP] Unexpected error in send_outpass_otp for outpass_id={outpass_id}: {str(e)}", exc_info=True)
         log_event(logging.ERROR, 'send_outpass_otp_error', outpass_id=outpass_id, error=str(e))
-        return api_error('OTP_SEND_FAILED', 'Failed to send OTP', 500)
+        return api_error('OTP_SEND_FAILED', f'Failed to send OTP: {str(e)}', 500)
 
 
 @app.route('/api/student/outpass/<int:outpass_id>/verify-otp', methods=['POST'])
