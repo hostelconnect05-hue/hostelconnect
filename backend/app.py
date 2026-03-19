@@ -2917,13 +2917,12 @@ def send_email_smtp(recipient_email, subject, html_body):
                 print("Starting TLS connection...")
                 server.starttls()
             
-            sender_password = SMTP_CONFIG['sender_password'].replace(' ', '')
-            if not sender_password:
+            if not SMTP_CONFIG['sender_password']:
                 print("ERROR: SMTP sender password missing. Set SENDER_PASSWORD env var.")
                 return False
 
             print(f"Logging in as {SMTP_CONFIG['sender_email']}...")
-            server.login(SMTP_CONFIG['sender_email'], sender_password)
+            server.login(SMTP_CONFIG['sender_email'], SMTP_CONFIG['sender_password'])
             
             print(f"Sending email to {recipient_email}...")
             server.sendmail(SMTP_CONFIG['sender_email'], recipient_email, message.as_string())
