@@ -3467,11 +3467,32 @@ def get_student_room_details(user_id):
             connection.close()
             return jsonify({'success': False, 'message': 'Room not found'}), 404
 
+        # Calculate live occupancy from actual active + approved room assignments.
+        # This avoids stale occupied_count values shown as 4/4, 5/5 when beds are vacant.
+        occupancy_query = """
+            SELECT COUNT(*) AS live_occupied_count
+            FROM students s
+            JOIN users u ON s.user_id = u.id
+            WHERE s.room_id = %s
+              AND u.status = 'active'
+              AND s.registration_status = 'approved'
+        """
+        cursor.execute(occupancy_query, (student['room_id'],))
+        occupancy_row = cursor.fetchone() or {}
+        live_occupied_count = occupancy_row.get('live_occupied_count', 0)
+
+        capacity = room.get('capacity') or 0
+        room['occupied_count'] = live_occupied_count
+        room['status'] = 'full' if capacity and live_occupied_count >= capacity else 'available'
+
         roommates_query = """
             SELECT u.name, s.branch, s.year, s.user_id
             FROM students s
             JOIN users u ON s.user_id = u.id
-            WHERE s.room_id = %s AND s.user_id <> %s
+            WHERE s.room_id = %s
+              AND s.user_id <> %s
+              AND u.status = 'active'
+              AND s.registration_status = 'approved'
             ORDER BY u.name
         """
         cursor.execute(roommates_query, (student['room_id'], user_id))
