@@ -175,6 +175,68 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
+def validate_room_assignment_constraints(cursor, student_id, room_id):
+    """Validate that room assignment follows gender and block safety rules."""
+    cursor.execute(
+        """
+        SELECT id, gender
+        FROM students
+        WHERE id = %s
+        """,
+        (student_id,)
+    )
+    student = cursor.fetchone()
+    if not student:
+        return False, 'Student not found for room assignment validation.'
+
+    student_gender = str(student.get('gender') or '').strip().lower()
+    if student_gender not in ('male', 'female'):
+        return False, 'Student gender must be set to male or female before room assignment.'
+
+    cursor.execute(
+        """
+        SELECT r.id, r.capacity, b.block_name, LOWER(TRIM(b.block_gender)) AS block_gender
+        FROM rooms r
+        JOIN blocks b ON r.block_id = b.id
+        WHERE r.id = %s
+        """,
+        (room_id,)
+    )
+    room = cursor.fetchone()
+    if not room:
+        return False, 'Requested room not found.'
+
+    block_gender = (room.get('block_gender') or '').strip().lower()
+    if block_gender not in ('male', 'female'):
+        return False, f"Block {room.get('block_name', '')} is missing a valid gender configuration."
+
+    if block_gender != student_gender:
+        return False, (
+            f"Gender mismatch: {student_gender.capitalize()} student cannot be assigned to "
+            f"{room.get('block_name', 'selected')} ({block_gender.capitalize()} block)."
+        )
+
+    # Prevent mixed-gender occupancy inside a room.
+    cursor.execute(
+        """
+        SELECT COUNT(*) AS opposite_count
+        FROM students s
+        JOIN users u ON s.user_id = u.id
+        WHERE s.room_id = %s
+          AND s.id <> %s
+          AND u.status = 'active'
+          AND s.registration_status = 'approved'
+          AND LOWER(TRIM(COALESCE(s.gender, ''))) <> %s
+        """,
+        (room_id, student_id, student_gender)
+    )
+    conflict = cursor.fetchone() or {}
+    if (conflict.get('opposite_count') or 0) > 0:
+        return False, 'Room already has students of the opposite gender. Mixed-gender room assignment is not allowed.'
+
+    return True, None
+
+
 def _cleanup_login_attempts(now):
     """Drop stale login attempt records from memory."""
     stale_cutoff = now - timedelta(minutes=LOGIN_TRACKING_WINDOW_MINUTES)
@@ -3564,17 +3626,31 @@ def submit_room_change_request():
         connection.commit()
 
         # Get student info
-        cursor.execute("SELECT id, room_id FROM students WHERE user_id = %s", (user_id,))
+        cursor.execute("SELECT id, room_id, gender FROM students WHERE user_id = %s", (user_id,))
         student = cursor.fetchone()
         if not student:
             cursor.close()
             connection.close()
             return jsonify({'success': False, 'message': 'Student not found'}), 404
 
+        student_gender = str(student.get('gender') or '').strip().lower()
+        if student_gender not in ('male', 'female'):
+            cursor.close()
+            connection.close()
+            return jsonify({'success': False, 'message': 'Student gender must be male or female before room change requests.'}), 400
+
         # Resolve block and room
-        cursor.execute("SELECT id FROM blocks WHERE block_name = %s", (preferred_block,))
+        cursor.execute(
+            "SELECT id FROM blocks WHERE block_name = %s AND LOWER(TRIM(block_gender)) = %s",
+            (preferred_block, student_gender)
+        )
         block = cursor.fetchone()
         requested_block_id = block['id'] if block else None
+
+        if not requested_block_id:
+            cursor.close()
+            connection.close()
+            return jsonify({'success': False, 'message': 'Selected block is not valid for student gender.'}), 400
 
         requested_room_id = None
         if preferred_room and requested_block_id:
@@ -3584,6 +3660,17 @@ def submit_room_change_request():
             )
             requested_room = cursor.fetchone()
             requested_room_id = requested_room['id'] if requested_room else None
+
+            if not requested_room_id:
+                cursor.close()
+                connection.close()
+                return jsonify({'success': False, 'message': 'Requested room was not found in selected block.'}), 404
+
+            is_valid, validation_error = validate_room_assignment_constraints(cursor, student['id'], requested_room_id)
+            if not is_valid:
+                cursor.close()
+                connection.close()
+                return jsonify({'success': False, 'message': validation_error}), 400
 
         preference_reason = full_reason[:250]
         room_preference = preferred_room or None
@@ -6669,7 +6756,7 @@ def approve_room_change(request_id):
         
         # Get request details
         cursor.execute("""
-            SELECT rcr.*, s.room_id as current_student_room
+            SELECT rcr.*, s.room_id as current_student_room, s.gender as student_gender
             FROM room_change_requests rcr
             JOIN students s ON rcr.student_id = s.id
             WHERE rcr.id = %s
@@ -6681,16 +6768,32 @@ def approve_room_change(request_id):
         
         # Check if requested room has space
         if req['requested_room_id']:
+            is_valid, validation_error = validate_room_assignment_constraints(cursor, req['student_id'], req['requested_room_id'])
+            if not is_valid:
+                return jsonify({'success': False, 'message': validation_error}), 400
+
             cursor.execute("""
-                SELECT capacity, occupied_count 
+                SELECT capacity
                 FROM rooms WHERE id = %s
             """, (req['requested_room_id'],))
             new_room = cursor.fetchone()
             
             if not new_room:
                 return jsonify({'success': False, 'message': 'Requested room not found'}), 404
-            
-            if new_room['occupied_count'] >= new_room['capacity']:
+
+            cursor.execute(
+                """
+                SELECT COUNT(*) AS live_occupied_count
+                FROM students s
+                JOIN users u ON s.user_id = u.id
+                WHERE s.room_id = %s
+                  AND u.status = 'active'
+                  AND s.registration_status = 'approved'
+                """,
+                (req['requested_room_id'],)
+            )
+            live_occupancy = cursor.fetchone() or {}
+            if (live_occupancy.get('live_occupied_count') or 0) >= (new_room.get('capacity') or 0):
                 return jsonify({'success': False, 'message': 'Requested room is full'}), 400
         
         # Update old room if exists and is different from new room
@@ -8330,8 +8433,21 @@ def update_user_details(user_id):
                 
                 # Handle room change if room_id is provided
                 if room_id:
+                    try:
+                        target_room_id = int(room_id)
+                    except (TypeError, ValueError):
+                        cursor.close()
+                        connection.close()
+                        return jsonify({'success': False, 'message': 'Invalid room ID'}), 400
+
+                    is_valid, validation_error = validate_room_assignment_constraints(cursor, student['id'], target_room_id)
+                    if not is_valid:
+                        cursor.close()
+                        connection.close()
+                        return jsonify({'success': False, 'message': validation_error}), 400
+
                     # If student already has a room, decrement old room's occupied_count
-                    if old_room_id and old_room_id != int(room_id):
+                    if old_room_id and old_room_id != target_room_id:
                         cursor.execute(
                             "SELECT occupied_count, capacity FROM rooms WHERE id = %s",
                             (old_room_id,)
@@ -8350,10 +8466,10 @@ def update_user_details(user_id):
                             )
                     
                     # Increment new room's occupied_count (whether it's a new assignment or room change)
-                    if not old_room_id or old_room_id != int(room_id):
+                    if not old_room_id or old_room_id != target_room_id:
                         cursor.execute(
                             "SELECT occupied_count, capacity FROM rooms WHERE id = %s",
-                            (room_id,)
+                            (target_room_id,)
                         )
                         new_room = cursor.fetchone()
                         if new_room:
@@ -8361,14 +8477,14 @@ def update_user_details(user_id):
                             new_status = 'full' if new_occupied >= new_room['capacity'] else 'available'
                             cursor.execute(
                                 "UPDATE rooms SET occupied_count = %s, status = %s WHERE id = %s",
-                                (new_occupied, new_status, room_id)
+                                (new_occupied, new_status, target_room_id)
                             )
                             # Create new allocation record
                             cursor.execute("""
                                 INSERT INTO room_allocations 
                                 (student_id, room_id, allocation_date, status)
                                 VALUES (%s, %s, CURDATE(), 'active')
-                            """, (student['id'], room_id))
+                            """, (student['id'], target_room_id))
                 
                 # Update student record
                 student_update = "UPDATE students SET "
@@ -8401,7 +8517,7 @@ def update_user_details(user_id):
                     student_params.append(parent_phone)
                 if room_id:
                     student_update += "room_id = %s, "
-                    student_params.append(room_id)
+                    student_params.append(target_room_id)
                 if fee_status:
                     student_update += "fee_status = %s, "
                     student_params.append(fee_status)
@@ -9085,7 +9201,7 @@ def approve_registration(student_id):
         
         # Check if student exists and fetch email + preferences
         cursor.execute("""
-            SELECT s.id, s.user_id, s.preferred_block, s.room_preference, s.floor_preference, u.email, u.name 
+            SELECT s.id, s.user_id, s.preferred_block, s.room_preference, s.floor_preference, s.gender, u.email, u.name 
             FROM students s 
             JOIN users u ON s.user_id = u.id 
             WHERE s.id = %s
@@ -9122,6 +9238,10 @@ def approve_registration(student_id):
             key = str(floor_preference).strip().lower()
             return floor_map.get(key)
         
+        student_gender = str(student.get('gender') or '').strip().lower()
+        if student_gender not in ('male', 'female'):
+            return jsonify({'success': False, 'message': 'Student gender must be male or female before approval and room assignment.'}), 400
+
         # Helper function to allocate room
         def allocate_room(room_data, block_name=None):
             """Allocate a room to the student"""
@@ -9129,6 +9249,10 @@ def approve_registration(student_id):
                 return None, ' No available rooms. Manual allocation required.'
             
             room_id = room_data['id']
+
+            is_valid, validation_error = validate_room_assignment_constraints(cursor, student_id, room_id)
+            if not is_valid:
+                return None, f' {validation_error}'
             
             # Update student with room allocation
             cursor.execute(
@@ -9172,8 +9296,8 @@ def approve_registration(student_id):
             floor_number = get_floor_number(floor_pref)
             print(f"[DEBUG] Preferred block: '{preferred_block}', Floor preference: '{floor_pref}', Floor number: {floor_number}")
             cursor.execute(
-                "SELECT id, block_name FROM blocks WHERE LOWER(TRIM(block_name)) = %s",
-                (preferred_block,)
+                "SELECT id, block_name FROM blocks WHERE LOWER(TRIM(block_name)) = %s AND LOWER(TRIM(block_gender)) = %s",
+                (preferred_block, student_gender)
             )
             block = cursor.fetchone()
             if block:
@@ -9205,9 +9329,10 @@ def approve_registration(student_id):
                 JOIN blocks b ON r.block_id = b.id
                 WHERE r.occupied_count < r.capacity 
                   AND r.status = 'available'
+                                    AND LOWER(TRIM(b.block_gender)) = %s
                 ORDER BY b.block_name, r.floor, r.room_number
                 LIMIT 1
-            """)
+                        """, (student_gender,))
             serialized_room = cursor.fetchone()
             if serialized_room:
                 allocated_room_id, msg = allocate_room(serialized_room)
@@ -9323,7 +9448,7 @@ def warden_approve_registration(student_id):
         cursor = connection.cursor()
         # Check if student exists and fetch email + preferences
         cursor.execute("""
-            SELECT s.id, s.user_id, s.preferred_block, s.room_preference, s.floor_preference, u.email, u.name 
+            SELECT s.id, s.user_id, s.preferred_block, s.room_preference, s.floor_preference, s.gender, u.email, u.name 
             FROM students s 
             JOIN users u ON s.user_id = u.id 
             WHERE s.id = %s
@@ -9331,6 +9456,10 @@ def warden_approve_registration(student_id):
         student = cursor.fetchone()
         if not student:
             return jsonify({'success': False, 'message': 'Student not found'}), 404
+
+        student_gender = str(student.get('gender') or '').strip().lower()
+        if student_gender not in ('male', 'female'):
+            return jsonify({'success': False, 'message': 'Student gender must be male or female before approval and room assignment.'}), 400
 
         def get_floor_number(floor_preference):
             if not floor_preference:
@@ -9361,6 +9490,11 @@ def warden_approve_registration(student_id):
             if not room_data:
                 return None, ' No available rooms. Manual allocation required.'
             room_id = room_data['id']
+
+            is_valid, validation_error = validate_room_assignment_constraints(cursor, student_id, room_id)
+            if not is_valid:
+                return None, f' {validation_error}'
+
             cursor.execute(
                 "UPDATE students SET room_id = %s WHERE id = %s",
                 (room_id, student_id)
@@ -9392,8 +9526,8 @@ def warden_approve_registration(student_id):
             floor_number = get_floor_number(floor_pref)
             print(f"[DEBUG] Preferred block: '{preferred_block}', Floor preference: '{floor_pref}', Floor number: {floor_number}")
             cursor.execute(
-                "SELECT id, block_name FROM blocks WHERE LOWER(TRIM(block_name)) = %s",
-                (preferred_block,)
+                "SELECT id, block_name FROM blocks WHERE LOWER(TRIM(block_name)) = %s AND LOWER(TRIM(block_gender)) = %s",
+                (preferred_block, student_gender)
             )
             block = cursor.fetchone()
             if block:
@@ -9423,9 +9557,10 @@ def warden_approve_registration(student_id):
                 JOIN blocks b ON r.block_id = b.id
                 WHERE r.occupied_count < r.capacity 
                   AND r.status = 'available'
+                                    AND LOWER(TRIM(b.block_gender)) = %s
                 ORDER BY b.block_name, r.floor, r.room_number
                 LIMIT 1
-            """)
+                        """, (student_gender,))
             serialized_room = cursor.fetchone()
             if serialized_room:
                 allocated_room_id, msg = allocate_room(serialized_room)
