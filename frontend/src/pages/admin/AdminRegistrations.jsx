@@ -58,6 +58,8 @@ const AdminRegistrations = () => {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showRejectConfirm, setShowRejectConfirm] = useState(false);
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
+  const [approveFeeStatus, setApproveFeeStatus] = useState('pending');
+  const [approvingRegistrationId, setApprovingRegistrationId] = useState(null);
   const [selectedRegistration, setSelectedRegistration] = useState(null);
   const [feedbackModal, setFeedbackModal] = useState({ open: false, title: '', message: '', tone: 'primary' });
 
@@ -88,17 +90,21 @@ const AdminRegistrations = () => {
 
   const handleApproveClick = (registration) => {
     setSelectedRegistration(registration);
+    const initialFeeStatus = (registration?.fee_status || 'pending').toLowerCase();
+    setApproveFeeStatus(initialFeeStatus === 'paid' ? 'paid' : 'pending');
     setShowApproveConfirm(true);
   };
 
   const handleApproveConfirm = async () => {
-    if (!selectedRegistration) return;
+    if (!selectedRegistration || approvingRegistrationId !== null) return;
+    const processingId = selectedRegistration.student_id;
+    setApprovingRegistrationId(processingId);
 
     try {
       const res = await fetch(`${API_BASE_URL}/api/admin/registrations/${selectedRegistration.student_id}/approve`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fee_status: selectedRegistration.fee_status || 'pending' })
+        body: JSON.stringify({ fee_status: approveFeeStatus })
       });
       
       const data = await res.json();
@@ -107,16 +113,18 @@ const AdminRegistrations = () => {
         openFeedbackModal('Registration Approved', 'Registration approved successfully!', 'success');
         fetchRegistrations();
         setShowDetailsModal(false);
+        setShowApproveConfirm(false);
+        setApproveFeeStatus('pending');
+        setSelectedRegistration(null);
       } else {
         openFeedbackModal('Approval Failed', `Failed to approve: ${data.message}`, 'danger');
       }
     } catch (error) {
       console.error('Error approving registration:', error);
       openFeedbackModal('Approval Failed', 'Failed to approve registration', 'danger');
+    } finally {
+      setApprovingRegistrationId(null);
     }
-
-    setShowApproveConfirm(false);
-    setSelectedRegistration(null);
   };
 
   const handleRejectClick = (registration) => {
@@ -156,6 +164,7 @@ const AdminRegistrations = () => {
     setShowDetailsModal(false);
     setShowRejectConfirm(false);
     setShowApproveConfirm(false);
+    setApproveFeeStatus('pending');
     setSelectedRegistration(null);
   };
 
@@ -292,8 +301,9 @@ const AdminRegistrations = () => {
                               className="btn-action btn-approve"
                               onClick={() => handleApproveClick(reg)}
                               title="Approve"
+                              disabled={approvingRegistrationId === reg.student_id}
                             >
-                              ✓
+                              {approvingRegistrationId === reg.student_id ? '⏳' : '✓'}
                             </button>
                             <button
                               className="btn-action btn-reject"
@@ -365,8 +375,9 @@ const AdminRegistrations = () => {
                         className="btn-action btn-approve"
                         onClick={() => handleApproveClick(reg)}
                         title="Approve"
+                        disabled={approvingRegistrationId === reg.student_id}
                       >
-                        ✓
+                        {approvingRegistrationId === reg.student_id ? '⏳' : '✓'}
                       </button>
                       <button
                         className="btn-action btn-reject"
@@ -520,16 +531,43 @@ const AdminRegistrations = () => {
         </div>
       )}
 
-      <ContextActionModal
-        open={showApproveConfirm && !!selectedRegistration}
-        title="Approve Registration"
-        message={selectedRegistration ? `Approve registration for ${selectedRegistration.name}?` : ''}
-        confirmText="Approve"
-        cancelText="Cancel"
-        tone="success"
-        onConfirm={handleApproveConfirm}
-        onClose={handleCloseModals}
-      />
+      {showApproveConfirm && selectedRegistration && (
+        <div className="modal-overlay" onClick={handleCloseModals}>
+          <div className="modal-content modal-details" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Approve Registration</h2>
+              <button className="btn-close" onClick={handleCloseModals}>×</button>
+            </div>
+            <div className="modal-body">
+              <p>
+                Confirm approval for <strong>{selectedRegistration.name}</strong> ({selectedRegistration.roll_number}).
+              </p>
+              <p>
+                A room will be allocated compulsorily during approval.
+              </p>
+              <div className="view-item view-item-full">
+                <div className="view-label">Payment Status Confirmation</div>
+                <div className="view-value">
+                  <select
+                    className="filter-select"
+                    value={approveFeeStatus}
+                    onChange={(e) => setApproveFeeStatus(e.target.value)}
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="paid">Paid</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={handleCloseModals} disabled={approvingRegistrationId !== null}>Cancel</button>
+              <button className="btn-primary" onClick={handleApproveConfirm} disabled={approvingRegistrationId !== null}>
+                {approvingRegistrationId !== null ? 'Approving...' : 'Confirm & Approve'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ContextActionModal
         open={showRejectConfirm && !!selectedRegistration}

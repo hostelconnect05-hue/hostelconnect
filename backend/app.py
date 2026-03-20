@@ -9279,7 +9279,9 @@ def approve_registration(student_id):
     """Approve a student registration and auto-allocate room based on preferences"""
     try:
         data = request.get_json() or {}
-        fee_status = data.get('fee_status', 'pending')
+        fee_status = str(data.get('fee_status', 'pending')).strip().lower()
+        if fee_status not in ('pending', 'paid'):
+            return jsonify({'success': False, 'message': 'Invalid fee status. Allowed values: pending, paid.'}), 400
         
         connection = get_db_connection()
         if not connection:
@@ -9289,7 +9291,8 @@ def approve_registration(student_id):
         
         # Check if student exists and fetch email + preferences
         cursor.execute("""
-            SELECT s.id, s.user_id, s.preferred_block, s.room_preference, s.floor_preference, s.gender, u.email, u.name 
+            SELECT s.id, s.user_id, s.preferred_block, s.room_preference, s.floor_preference, s.gender,
+                   s.registration_status, s.room_id, u.email, u.name 
             FROM students s 
             JOIN users u ON s.user_id = u.id 
             WHERE s.id = %s
@@ -9297,7 +9300,20 @@ def approve_registration(student_id):
         student = cursor.fetchone()
         
         if not student:
+            cursor.close()
+            connection.close()
             return jsonify({'success': False, 'message': 'Student not found'}), 404
+
+        current_status = str(student.get('registration_status') or '').strip().lower()
+        if current_status != 'pending':
+            cursor.close()
+            connection.close()
+            return jsonify({'success': False, 'message': f'Registration already processed with status: {current_status}'}), 409
+
+        if student.get('room_id') is not None:
+            cursor.close()
+            connection.close()
+            return jsonify({'success': False, 'message': 'Student already has a room allocation. Approval cannot be processed again.'}), 409
         
         # Helper function to map floor preference to floor number
         def get_floor_number(floor_preference):
@@ -9328,6 +9344,8 @@ def approve_registration(student_id):
         
         student_gender = str(student.get('gender') or '').strip().lower()
         if student_gender not in ('male', 'female'):
+            cursor.close()
+            connection.close()
             return jsonify({'success': False, 'message': 'Student gender must be male or female before approval and room assignment.'}), 400
 
         # Helper function to allocate room
@@ -9409,7 +9427,7 @@ def approve_registration(student_id):
             else:
                 print(f"[DEBUG] No block found for preferred_block: '{preferred_block}'")
 
-        # Strategy 2: Serialized allocation - first available room in order
+        # Strategy 2: Random fallback among all eligible gender-safe rooms.
         if not allocated_room_id:
             cursor.execute("""
                 SELECT r.id, r.room_number, r.capacity, r.occupied_count, r.floor, b.block_name
@@ -9418,7 +9436,7 @@ def approve_registration(student_id):
                 WHERE r.occupied_count < r.capacity 
                   AND r.status = 'available'
                                     AND LOWER(TRIM(b.block_gender)) = %s
-                ORDER BY b.block_name, r.floor, r.room_number
+            ORDER BY RAND()
                 LIMIT 1
                         """, (student_gender,))
             serialized_room = cursor.fetchone()
@@ -9427,6 +9445,15 @@ def approve_registration(student_id):
                 allocation_message = msg + ' (preferences unavailable, allocated serially)'
             else:
                 allocation_message = ' No available rooms. Manual allocation required.'
+
+        if not allocated_room_id:
+            connection.rollback()
+            cursor.close()
+            connection.close()
+            return jsonify({
+                'success': False,
+                'message': 'Registration approval requires room allocation, but no eligible room is available for this student.'
+            }), 409
         
         # Update registration status to approved and fee status
         cursor.execute(
@@ -9528,7 +9555,9 @@ def warden_approve_registration(student_id):
     """Warden approves a student registration and auto-allocates room based on preferences"""
     try:
         data = request.get_json() or {}
-        fee_status = data.get('fee_status', 'pending')
+        fee_status = str(data.get('fee_status', 'pending')).strip().lower()
+        if fee_status not in ('pending', 'paid'):
+            return jsonify({'success': False, 'message': 'Invalid fee status. Allowed values: pending, paid.'}), 400
         connection = get_db_connection()
         if not connection:
             return jsonify({'success': False, 'message': 'Database connection failed'}), 500
@@ -9536,17 +9565,33 @@ def warden_approve_registration(student_id):
         cursor = connection.cursor()
         # Check if student exists and fetch email + preferences
         cursor.execute("""
-            SELECT s.id, s.user_id, s.preferred_block, s.room_preference, s.floor_preference, s.gender, u.email, u.name 
+            SELECT s.id, s.user_id, s.preferred_block, s.room_preference, s.floor_preference, s.gender,
+                   s.registration_status, s.room_id, u.email, u.name 
             FROM students s 
             JOIN users u ON s.user_id = u.id 
             WHERE s.id = %s
         """, (student_id,))
         student = cursor.fetchone()
         if not student:
+            cursor.close()
+            connection.close()
             return jsonify({'success': False, 'message': 'Student not found'}), 404
+
+        current_status = str(student.get('registration_status') or '').strip().lower()
+        if current_status != 'pending':
+            cursor.close()
+            connection.close()
+            return jsonify({'success': False, 'message': f'Registration already processed with status: {current_status}'}), 409
+
+        if student.get('room_id') is not None:
+            cursor.close()
+            connection.close()
+            return jsonify({'success': False, 'message': 'Student already has a room allocation. Approval cannot be processed again.'}), 409
 
         student_gender = str(student.get('gender') or '').strip().lower()
         if student_gender not in ('male', 'female'):
+            cursor.close()
+            connection.close()
             return jsonify({'success': False, 'message': 'Student gender must be male or female before approval and room assignment.'}), 400
 
         def get_floor_number(floor_preference):
@@ -9646,7 +9691,7 @@ def warden_approve_registration(student_id):
                 WHERE r.occupied_count < r.capacity 
                   AND r.status = 'available'
                                     AND LOWER(TRIM(b.block_gender)) = %s
-                ORDER BY b.block_name, r.floor, r.room_number
+                                ORDER BY RAND()
                 LIMIT 1
                         """, (student_gender,))
             serialized_room = cursor.fetchone()
@@ -9655,6 +9700,15 @@ def warden_approve_registration(student_id):
                 allocation_message = msg + ' (preferences unavailable, allocated serially)'
             else:
                 allocation_message = ' No available rooms. Manual allocation required.'
+
+        if not allocated_room_id:
+            connection.rollback()
+            cursor.close()
+            connection.close()
+            return jsonify({
+                'success': False,
+                'message': 'Registration approval requires room allocation, but no eligible room is available for this student.'
+            }), 409
         cursor.execute(
             "UPDATE students SET registration_status = 'approved', fee_status = %s WHERE id = %s", 
             (fee_status, student_id)

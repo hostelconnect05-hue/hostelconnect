@@ -141,6 +141,10 @@ const WardenStudents = () => {
   const [showStatusConfirm, setShowStatusConfirm] = useState(false);
   const [pendingStatusStudent, setPendingStatusStudent] = useState(null);
   const [selectedStudent, setSelectedStudent] = useState(null);
+  const [profileAssignment, setProfileAssignment] = useState({ block: '', room: '' });
+  const [profileAvailableRooms, setProfileAvailableRooms] = useState([]);
+  const [profileRoomLoading, setProfileRoomLoading] = useState(false);
+  const [profileAssignmentSaving, setProfileAssignmentSaving] = useState(false);
   // In-modal message state
   const [modalMessage, setModalMessage] = useState(null);
   const [modalMessageType, setModalMessageType] = useState('success');
@@ -207,8 +211,100 @@ const WardenStudents = () => {
 
   // Handlers
   const handleViewProfile = (student) => {
+    const blockName = student.block_name || '';
+    const blockId = student.block_id || hostelBlocks.find(b => b.block_name === blockName)?.id || '';
+
     setSelectedStudent(student);
+    setProfileAssignment({
+      block: blockName,
+      room: student.room_id ? String(student.room_id) : ''
+    });
+    if (blockId) {
+      fetchProfileRoomsByBlock(blockId, student.room_id);
+    } else {
+      setProfileAvailableRooms([]);
+    }
     setShowProfileModal(true);
+  };
+
+  const fetchProfileRoomsByBlock = async (blockId, currentRoomId = null) => {
+    if (!blockId) {
+      setProfileAvailableRooms([]);
+      return;
+    }
+
+    setProfileRoomLoading(true);
+    try {
+      const headers = getAuthHeaders();
+      const endpoints = getRoleAwareEndpoints();
+      const res = await fetch(endpoints.rooms(blockId), { headers });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        const currentRoomNum = currentRoomId ? Number(currentRoomId) : null;
+        const assignableRooms = data.data.filter((room) => {
+          const roomNum = Number(room.id);
+          const occupied = Number(room.occupied_count || 0);
+          const capacity = Number(room.capacity || 0);
+          return roomNum === currentRoomNum || occupied < capacity || room.status === 'available';
+        });
+        setProfileAvailableRooms(assignableRooms);
+      }
+    } catch (error) {
+      console.error('Error fetching profile rooms:', error);
+      showMessage('Failed to fetch rooms for profile assignment', 'error');
+    } finally {
+      setProfileRoomLoading(false);
+    }
+  };
+
+  const handleProfileAssignmentChange = (e) => {
+    const { name, value } = e.target;
+
+    if (name === 'block') {
+      setProfileAssignment({ block: value, room: '' });
+      const selectedBlock = hostelBlocks.find(b => b.block_name === value);
+      if (selectedBlock) {
+        fetchProfileRoomsByBlock(selectedBlock.id, selectedStudent?.room_id);
+      } else {
+        setProfileAvailableRooms([]);
+      }
+      return;
+    }
+
+    setProfileAssignment(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSaveProfileAssignment = async () => {
+    if (!selectedStudent) {
+      return;
+    }
+
+    if (!profileAssignment.block || !profileAssignment.room) {
+      showMessage('Please select both block and room', 'error');
+      return;
+    }
+
+    setProfileAssignmentSaving(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/warden/user/${getStudentUserId(selectedStudent)}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(true),
+        body: JSON.stringify({ roomId: parseInt(profileAssignment.room, 10) })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showMessage('Room assignment updated successfully', 'success');
+        await fetchStudents();
+        setShowProfileModal(false);
+      } else {
+        showMessage(data.message || 'Failed to update room assignment', 'error');
+      }
+    } catch (error) {
+      console.error('Error updating profile room assignment:', error);
+      showMessage('Failed to update room assignment', 'error');
+    } finally {
+      setProfileAssignmentSaving(false);
+    }
   };
 
   const handleEditStudent = async (student) => {
@@ -821,6 +917,47 @@ const WardenStudents = () => {
                 <div className="detail-section">
                   <h4>Hostel Information</h4>
                   <div className="detail-row">
+                    <span className="detail-label">Hostel Block</span>
+                    <span className="detail-value">
+                      <select
+                        name="block"
+                        className="form-select"
+                        value={profileAssignment.block}
+                        onChange={handleProfileAssignmentChange}
+                      >
+                        <option value="">Select Block</option>
+                        {hostelBlocks.map(block => (
+                          <option key={block.id} value={block.block_name}>
+                            {block.block_name}
+                          </option>
+                        ))}
+                      </select>
+                    </span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">Room Number</span>
+                    <span className="detail-value">
+                      <select
+                        name="room"
+                        className="form-select"
+                        value={profileAssignment.room}
+                        onChange={handleProfileAssignmentChange}
+                        disabled={!profileAssignment.block || profileRoomLoading}
+                      >
+                        <option value="">Select Room</option>
+                        {profileRoomLoading ? (
+                          <option disabled>Loading rooms...</option>
+                        ) : (
+                          profileAvailableRooms.map(room => (
+                            <option key={room.id} value={room.id}>
+                              Room {room.room_number} ({room.occupied_count}/{room.capacity})
+                            </option>
+                          ))
+                        )}
+                      </select>
+                    </span>
+                  </div>
+                  <div className="detail-row">
                     <span className="detail-label">Fee Status</span>
                     <span className="detail-value">
                       <span className={`fee-badge ${selectedStudent.fee_status === 'paid' ? 'fee-paid' : 'fee-pending'}`}>
@@ -834,6 +971,9 @@ const WardenStudents = () => {
             <div className="modal-footer">
               <button className="btn-secondary" onClick={() => setShowProfileModal(false)}>
                 Close
+              </button>
+              <button className="btn-primary" onClick={handleSaveProfileAssignment} disabled={profileAssignmentSaving}>
+                {profileAssignmentSaving ? 'Saving...' : 'Save Block & Room'}
               </button>
               <button className="btn-primary" onClick={() => {
                 setShowProfileModal(false);
