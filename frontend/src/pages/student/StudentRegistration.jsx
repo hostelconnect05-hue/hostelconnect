@@ -139,12 +139,12 @@ const StudentRegistration = () => {
       const data = await response.json();
 
       if (data.success) {
-        // Store the file path returned from server
+        // Store the Cloudinary URL returned from server
         setFormData((prev) => ({
           ...prev,
-          paymentProofUrl: data.file_path,
+          paymentProofUrl: data.file_url,  // Changed from file_path to file_url
         }));
-        console.log('File uploaded successfully:', data.file_path);
+        console.log('File uploaded successfully to Cloudinary:', data.file_url);
       } else {
         alert(data.message || 'File upload failed');
         setFormData((prev) => ({

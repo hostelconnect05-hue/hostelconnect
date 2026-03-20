@@ -8500,48 +8500,76 @@ def update_user_details(user_id):
 
 @app.route('/api/upload/payment-proof', methods=['POST'])
 def upload_payment_proof():
-    """Upload payment proof document to Cloudinary"""
+    """Upload payment proof document to Cloudinary with validation"""
     try:
         # Check if file is present in request
         if 'file' not in request.files:
+            app.logger.warning("[UPLOAD] Payment proof upload - No file provided in request")
             return jsonify({'success': False, 'message': 'No file provided'}), 400
 
         file = request.files['file']
 
         if file.filename == '':
+            app.logger.warning("[UPLOAD] Payment proof upload - Empty filename")
             return jsonify({'success': False, 'message': 'No file selected'}), 400
 
         # Validate file type
         if not allowed_file(file.filename):
-            return jsonify({'success': False, 'message': f'File type not allowed. Allowed: {", ".join(ALLOWED_EXTENSIONS)}'}), 400
+            app.logger.warning(f"[UPLOAD] Payment proof upload - Invalid file type: {file.filename}")
+            return jsonify({
+                'success': False, 
+                'message': f'File type not allowed. Allowed types: {", ".join(ALLOWED_EXTENSIONS)}'
+            }), 400
 
-        # Generate unique filename
-        from werkzeug.utils import secure_filename
-        filename = secure_filename(file.filename)
-        unique_filename = f"{secrets.token_hex(8)}_{filename}"
+        # Validate file size (max 5MB)
+        MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+        file.seek(0, 2)  # Seek to end
+        file_size = file.tell()
+        file.seek(0)  # Reset to beginning
+        
+        if file_size > MAX_FILE_SIZE:
+            app.logger.warning(f"[UPLOAD] Payment proof upload - File too large: {file_size} bytes")
+            return jsonify({
+                'success': False,
+                'message': f'File size exceeds 5MB limit (Size: {file_size / (1024*1024):.2f}MB)'
+            }), 400
+
+        app.logger.info(f"[UPLOAD] Starting payment proof upload: {file.filename} ({file_size} bytes)")
 
         # Upload to Cloudinary using utility function
         upload_result = upload_to_cloudinary(file, folder="hostelconnect/payment-proofs")
 
         if not upload_result['success']:
-            return jsonify({'success': False, 'message': upload_result['error']}), 500
+            app.logger.error(f"[UPLOAD] Cloudinary upload failed: {upload_result['error']}")
+            return jsonify({
+                'success': False, 
+                'message': f"Upload failed: {upload_result['error']}"
+            }), 500
 
-        # Get the secure URL
+        # Get the secure URL from Cloudinary
         file_url = upload_result['url']
+        public_id = upload_result['public_id']
 
-        print(f"Payment proof uploaded to Cloudinary: {file_url}")
+        app.logger.info(f"[UPLOAD] ✅ Payment proof uploaded successfully to Cloudinary")
+        app.logger.info(f"[UPLOAD] URL: {file_url}")
+        app.logger.info(f"[UPLOAD] Public ID: {public_id}")
 
         return jsonify({
             'success': True,
-            'message': 'File uploaded successfully',
+            'message': 'Payment proof uploaded successfully',
             'file_url': file_url,
-            'filename': filename,
-            'public_id': upload_result['public_id']
+            'filename': upload_result['filename'],
+            'public_id': public_id,
+            'size': upload_result['size'],
+            'format': upload_result['format']
         }), 200
 
     except Exception as e:
-        print(f"Error uploading file to Cloudinary: {str(e)}")
-        return jsonify({'success': False, 'message': str(e)}), 500
+        app.logger.error(f"[UPLOAD] ❌ Error uploading payment proof to Cloudinary: {str(e)}", exc_info=True)
+        return jsonify({
+            'success': False, 
+            'message': 'An error occurred while uploading the file'
+        }), 500
 
 
 @app.route('/api/student/register', methods=['POST'])
