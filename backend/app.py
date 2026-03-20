@@ -54,10 +54,11 @@ USE_RESEND = os.getenv('EMAIL_USE_RESEND', 'true').lower() == 'true'
 # Resend Configuration (Primary - works on all cloud platforms)
 if USE_RESEND:
     RESEND_API_KEY = os.getenv('RESEND_API_KEY')
-    RESEND_FROM_EMAIL = (os.getenv('RESEND_FROM_EMAIL') or 'noreply@hostelconnect.site').strip()
+    RESEND_FROM_EMAIL = (os.getenv('RESEND_FROM_EMAIL') or 'HostelConnect <noreply@hostelconnect.site>').strip()
+    RESEND_FROM_NAME = os.getenv('RESEND_FROM_NAME', 'HostelConnect')
     # Keep a HostelConnect default sender in case env still points to resend.dev test sender.
     if RESEND_FROM_EMAIL.endswith('@resend.dev'):
-        RESEND_FROM_EMAIL = 'noreply@hostelconnect.site'
+        RESEND_FROM_EMAIL = 'HostelConnect <noreply@hostelconnect.site>'
     if RESEND_API_KEY:
         resend.api_key = RESEND_API_KEY
         app.logger.info(f"[EMAIL] Email mode: Resend API from {RESEND_FROM_EMAIL}")
@@ -67,17 +68,20 @@ if USE_RESEND:
         USE_RESEND = False
 
 # Fallback SMTP Configuration
+SMTP_FROM_NAME = os.getenv('SMTP_FROM_NAME', 'HostelConnect')
 SMTP_CONFIG = {
     'smtp_server': os.getenv('SMTP_SERVER', 'smtp.gmail.com'),
     'smtp_port': int(os.getenv('SMTP_PORT', 587)),
     'sender_email': os.getenv('SMTP_EMAIL'),
     'sender_password': os.getenv('SMTP_PASSWORD'),
+    'sender_name': SMTP_FROM_NAME,
     'use_tls': True
 }
 
 # Fallback Gmail API Configuration (OAuth2)
 CLIENT_SECRET_FILE = os.path.join(os.path.dirname(__file__), 'client_secret.json')
 SENDER_EMAIL = 'hostelconnect05@gmail.com'
+GMAIL_FROM_NAME = os.getenv('GMAIL_FROM_NAME', 'HostelConnect')
 SCOPES = ['https://www.googleapis.com/auth/gmail.send']
 
 def get_gmail_service():
@@ -2967,7 +2971,7 @@ def send_email_smtp(recipient_email, subject, html_body):
         # Create message
         message = MIMEMultipart('alternative')
         message['Subject'] = subject
-        message['From'] = SMTP_CONFIG['sender_email']
+        message['From'] = f"{SMTP_CONFIG['sender_name']} <{SMTP_CONFIG['sender_email']}>"
         message['To'] = recipient_email
         
         # Attach HTML content
@@ -3021,7 +3025,7 @@ def send_email_gmail_api(recipient_email, subject, html_body):
         # Create message
         message = MIMEMultipart('alternative')
         message['Subject'] = subject
-        message['From'] = SENDER_EMAIL
+        message['From'] = f"{GMAIL_FROM_NAME} <{SENDER_EMAIL}>"
         message['To'] = recipient_email
         
         # Attach HTML content
