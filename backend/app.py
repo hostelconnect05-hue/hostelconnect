@@ -1170,9 +1170,9 @@ def fetch_security_insights_data(cursor):
         SELECT COUNT(*) AS unauthorized_exit_attempts_30d
         FROM security_logs
         WHERE activity_type = 'incident'
-          AND description LIKE 'Unauthorized exit attempt%'
+          AND description LIKE %s
           AND timestamp >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-    """)
+    """, ('Unauthorized exit attempt%',))
     unauthorized_stats = cursor.fetchone() or {}
 
     return {
@@ -1236,18 +1236,18 @@ def process_security_monitoring_cycle():
               AND actual_return_time IS NULL
         """, (late_minutes, row['id']))
 
-    cursor.execute("""
-        SELECT sl.id, sl.related_student_id AS student_id, sl.related_outpass_id, sl.description, sl.timestamp,
-               u.name AS student_name, s.roll_number
-        FROM security_logs sl
-        LEFT JOIN students s ON sl.related_student_id = s.id
-        LEFT JOIN users u ON s.user_id = u.id
-        WHERE sl.activity_type = 'incident'
-          AND sl.description LIKE 'Unauthorized exit attempt%'
-          AND sl.timestamp >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-        ORDER BY sl.timestamp DESC
-        LIMIT 200
-    """)
+        cursor.execute("""
+                SELECT sl.id, sl.related_student_id AS student_id, sl.related_outpass_id, sl.description, sl.timestamp,
+                             u.name AS student_name, s.roll_number
+                FROM security_logs sl
+                LEFT JOIN students s ON sl.related_student_id = s.id
+                LEFT JOIN users u ON s.user_id = u.id
+                WHERE sl.activity_type = 'incident'
+                    AND sl.description LIKE %s
+                    AND sl.timestamp >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+                ORDER BY sl.timestamp DESC
+                LIMIT 200
+        """, ('Unauthorized exit attempt%',))
     unauthorized_incidents = cursor.fetchall() or []
 
     for incident in unauthorized_incidents:
@@ -1314,24 +1314,30 @@ def process_security_monitoring_cycle():
         """, (student_id,))
         late_returns_30d = int((cursor.fetchone() or {}).get('late_returns_30d') or 0)
 
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT COUNT(*) AS missing_returns_30d
             FROM outpasses
             WHERE student_id = %s
               AND status = 'overdue'
               AND actual_return_time IS NULL
               AND expected_return_time < NOW()
-        """, (student_id,))
+            """,
+            (student_id,)
+        )
         missing_returns_30d = int((cursor.fetchone() or {}).get('missing_returns_30d') or 0)
 
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT COUNT(*) AS unauthorized_exits_30d
             FROM security_logs
             WHERE related_student_id = %s
               AND activity_type = 'incident'
-              AND description LIKE 'Unauthorized exit attempt%'
+              AND description LIKE %s
               AND timestamp >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-        """, (student_id,))
+            """,
+            (student_id, 'Unauthorized exit attempt%')
+        )
         unauthorized_exits_30d = int((cursor.fetchone() or {}).get('unauthorized_exits_30d') or 0)
 
         cursor.execute("""
