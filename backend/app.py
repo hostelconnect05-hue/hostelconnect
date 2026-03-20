@@ -54,7 +54,10 @@ USE_RESEND = os.getenv('EMAIL_USE_RESEND', 'true').lower() == 'true'
 # Resend Configuration (Primary - works on all cloud platforms)
 if USE_RESEND:
     RESEND_API_KEY = os.getenv('RESEND_API_KEY')
-    RESEND_FROM_EMAIL = os.getenv('RESEND_FROM_EMAIL', 'noreply@hostelconnect.site')
+    RESEND_FROM_EMAIL = (os.getenv('RESEND_FROM_EMAIL') or 'noreply@hostelconnect.site').strip()
+    # Keep a HostelConnect default sender in case env still points to resend.dev test sender.
+    if RESEND_FROM_EMAIL.endswith('@resend.dev'):
+        RESEND_FROM_EMAIL = 'noreply@hostelconnect.site'
     if RESEND_API_KEY:
         resend.api_key = RESEND_API_KEY
         app.logger.info(f"[EMAIL] Email mode: Resend API from {RESEND_FROM_EMAIL}")
@@ -2927,29 +2930,36 @@ def send_email(recipient_email, subject, html_body):
 
 def send_email_resend(recipient_email, subject, html_body):
     """Send email using Resend API"""
+    app.logger.info(f"[EMAIL-RESEND] Sending email to {recipient_email}...")
+    sender_email = RESEND_FROM_EMAIL
+
     try:
-        app.logger.info(f"[EMAIL-RESEND] Sending email to {recipient_email}...")
-        sender_email = RESEND_FROM_EMAIL
-        
         email = resend.Emails.send({
             "from": sender_email,
             "to": recipient_email,
             "subject": subject,
             "html": html_body,
         })
-        
+
         message_id = email.get('id')
         if message_id:
-            app.logger.info(f"[EMAIL-RESEND] Email sent successfully to {recipient_email}, Message ID: {message_id}")
+            app.logger.info(
+                f"[EMAIL-RESEND] Email sent successfully to {recipient_email} "
+                f"from {sender_email}, Message ID: {message_id}"
+            )
             return True
-        else:
-            error_msg = email.get('message', 'Unknown error')
-            app.logger.error(f"[EMAIL-RESEND] Failed to send email to {recipient_email}: {error_msg}")
-            return False
-            
+
+        error_msg = email.get('message', 'Unknown error')
+        app.logger.error(
+            f"[EMAIL-RESEND] Failed via sender {sender_email} to {recipient_email}: {error_msg}"
+        )
     except Exception as e:
-        app.logger.error(f"[EMAIL-RESEND] Error sending email to {recipient_email}: {str(e)}", exc_info=True)
-        return False
+        app.logger.error(
+            f"[EMAIL-RESEND] Error via sender {sender_email} to {recipient_email}: {str(e)}",
+            exc_info=True
+        )
+
+    return False
 
 def send_email_smtp(recipient_email, subject, html_body):
     """Send email using SMTP (Gmail, Office365, etc)"""
