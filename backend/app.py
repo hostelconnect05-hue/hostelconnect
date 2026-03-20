@@ -2894,50 +2894,48 @@ def get_rejected_outpasses():
 
 
 def send_email(recipient_email, subject, html_body):
-    """Send email using Resend API (primary) with fallback to SMTP or Gmail API"""
+    """Send email using Resend API (ONLY method - no fallback)"""
     try:
         app.logger.info(f"[EMAIL] Starting email send to {recipient_email}")
         app.logger.info(f"[EMAIL] Subject: {subject}")
         
-        # Try Resend API first (primary method)
-        if USE_RESEND:
-            app.logger.info("[EMAIL] Attempting to send via Resend API...")
-            result = send_email_resend(recipient_email, subject, html_body)
-            if result:
-                app.logger.info(f"[EMAIL] Successfully sent via Resend API to {recipient_email}")
-                return True
-            else:
-                app.logger.warning(f"[EMAIL] Resend API failed, trying fallback method...")
+        # Use ONLY Resend API for email sending
+        if not USE_RESEND:
+            app.logger.error("[EMAIL] ERROR: Resend API not configured. Set EMAIL_USE_RESEND=true and RESEND_API_KEY")
+            return False
         
-        # Fallback to SMTP
-        app.logger.info("[EMAIL] Attempting to send via SMTP...")
-        result = send_email_smtp(recipient_email, subject, html_body)
+        app.logger.info("[EMAIL] Sending via Resend API...")
+        result = send_email_resend(recipient_email, subject, html_body)
+        
         if result:
-            app.logger.info(f"[EMAIL] Successfully sent via SMTP to {recipient_email}")
+            app.logger.info(f"[EMAIL] ✅ Successfully sent via Resend API to {recipient_email}")
             return True
-        
-        # Final fallback to Gmail API
-        app.logger.info("[EMAIL] Attempting to send via Gmail API...")
-        result = send_email_gmail_api(recipient_email, subject, html_body)
-        if result:
-            app.logger.info(f"[EMAIL] Successfully sent via Gmail API to {recipient_email}")
-            return True
-        
-        app.logger.error(f"[EMAIL] All methods failed for {recipient_email}")
-        return False
+        else:
+            app.logger.error(f"[EMAIL] ❌ Failed to send via Resend API to {recipient_email}")
+            return False
             
     except Exception as e:
-        app.logger.error(f"[EMAIL] Error in send_email wrapper to {recipient_email}:")
+        app.logger.error(f"[EMAIL] Error in send_email to {recipient_email}:")
         app.logger.error(f"[EMAIL] Error type: {type(e).__name__}")
         app.logger.error(f"[EMAIL] Error message: {str(e)}", exc_info=True)
         return False
 
 def send_email_resend(recipient_email, subject, html_body):
-    """Send email using Resend API"""
+    """Send email using Resend API - ONLY email sending method"""
     app.logger.info(f"[EMAIL-RESEND] Sending email to {recipient_email}...")
+    
+    if not RESEND_API_KEY:
+        app.logger.error("[EMAIL-RESEND] FATAL: Resend API key not configured")
+        return False
+    
     sender_email = RESEND_FROM_EMAIL
+    
+    if not sender_email:
+        app.logger.error("[EMAIL-RESEND] FATAL: Sender email not configured (RESEND_FROM_EMAIL)")
+        return False
 
     try:
+        # Send email via Resend API
         email = resend.Emails.send({
             "from": sender_email,
             "to": recipient_email,
@@ -2948,105 +2946,43 @@ def send_email_resend(recipient_email, subject, html_body):
         message_id = email.get('id')
         if message_id:
             app.logger.info(
-                f"[EMAIL-RESEND] Email sent successfully to {recipient_email} "
-                f"from {sender_email}, Message ID: {message_id}"
+                f"[EMAIL-RESEND] ✅ Email sent successfully to {recipient_email} "
+                f"from {sender_email} (ID: {message_id})"
             )
             return True
 
         error_msg = email.get('message', 'Unknown error')
         app.logger.error(
-            f"[EMAIL-RESEND] Failed via sender {sender_email} to {recipient_email}: {error_msg}"
+            f"[EMAIL-RESEND] ❌ Failed to send to {recipient_email}: {error_msg}"
         )
+        return False
+        
     except Exception as e:
         app.logger.error(
-            f"[EMAIL-RESEND] Error via sender {sender_email} to {recipient_email}: {str(e)}",
+            f"[EMAIL-RESEND] ❌ Exception sending to {recipient_email}: {str(e)}",
             exc_info=True
         )
-
-    return False
+        return False
 
 def send_email_smtp(recipient_email, subject, html_body):
-    """Send email using SMTP (Gmail, Office365, etc)"""
-    try:
-        # Create message
-        message = MIMEMultipart('alternative')
-        message['Subject'] = subject
-        message['From'] = f"{SMTP_CONFIG['sender_name']} <{SMTP_CONFIG['sender_email']}>"
-        message['To'] = recipient_email
-        
-        # Attach HTML content
-        part = MIMEText(html_body, 'html')
-        message.attach(part)
-        
-        # Send email via SMTP
-        app.logger.info(f"[EMAIL-SMTP] Connecting to {SMTP_CONFIG['smtp_server']}:{SMTP_CONFIG['smtp_port']}...")
-        with smtplib.SMTP(SMTP_CONFIG['smtp_server'], SMTP_CONFIG['smtp_port'], timeout=10) as server:
-            if SMTP_CONFIG['use_tls']:
-                app.logger.info("[EMAIL-SMTP] Starting TLS connection...")
-                server.starttls()
-            
-            if not SMTP_CONFIG['sender_password']:
-                app.logger.error("[EMAIL-SMTP] ERROR: SMTP sender password missing. Set SENDER_PASSWORD env var.")
-                return False
-
-            app.logger.info(f"[EMAIL-SMTP] Logging in as {SMTP_CONFIG['sender_email']}...")
-            server.login(SMTP_CONFIG['sender_email'], SMTP_CONFIG['sender_password'])
-            
-            app.logger.info(f"[EMAIL-SMTP] Sending email to {recipient_email}...")
-            server.sendmail(SMTP_CONFIG['sender_email'], recipient_email, message.as_string())
-        
-        app.logger.info(f"[EMAIL-SMTP] Email sent successfully to {recipient_email}")
-        return True
-    except smtplib.SMTPAuthenticationError as auth_error:
-        app.logger.error(f"[EMAIL-SMTP] Authentication error to {recipient_email}: {str(auth_error)}")
-        return False
-    except smtplib.SMTPException as smtp_error:
-        app.logger.error(f"[EMAIL-SMTP] SMTP error to {recipient_email}: {str(smtp_error)}")
-        return False
-    except Exception as e:
-        app.logger.error(f"[EMAIL-SMTP] Error sending email to {recipient_email}:")
-        app.logger.error(f"[EMAIL-SMTP] Error type: {type(e).__name__}")
-        app.logger.error(f"[EMAIL-SMTP] Error message: {str(e)}", exc_info=True)
-        return False
+    """
+    ⚠️ DEPRECATED: This function is NO LONGER USED
+    All emails must be sent via Resend API only.
+    Keeping this for reference/future use if needed.
+    SMTP is blocked on Onrender and other cloud platforms.
+    """
+    app.logger.warning(f"[EMAIL-SMTP] DEPRECATED: send_email_smtp() should not be called. Use send_email() instead.")
+    return False
 
 def send_email_gmail_api(recipient_email, subject, html_body):
-    """Send email using Gmail API"""
-    try:
-        app.logger.info(f"[EMAIL-GMAIL] Client secret file exists: {os.path.exists(CLIENT_SECRET_FILE)}")
-        app.logger.info(f"[EMAIL-GMAIL] Client secret path: {CLIENT_SECRET_FILE}")
-        
-        service = get_gmail_service()
-        if not service:
-            app.logger.error(f"[EMAIL-GMAIL] ERROR: Failed to get Gmail service for {recipient_email}")
-            return False
-        
-        app.logger.info("[EMAIL-GMAIL] Gmail service created successfully")
-        
-        # Create message
-        message = MIMEMultipart('alternative')
-        message['Subject'] = subject
-        message['From'] = f"{GMAIL_FROM_NAME} <{SENDER_EMAIL}>"
-        message['To'] = recipient_email
-        
-        # Attach HTML content
-        part = MIMEText(html_body, 'html')
-        message.attach(part)
-        
-        # Send email via Gmail API
-        raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
-        send_message = {'raw': raw_message}
-        
-        app.logger.info(f"[EMAIL-GMAIL] Sending via Gmail API to {recipient_email}...")
-        result = service.users().messages().send(userId='me', body=send_message).execute()
-        
-        app.logger.info(f"[EMAIL-GMAIL] Email sent successfully to {recipient_email}")
-        app.logger.info(f"[EMAIL-GMAIL] Message ID: {result.get('id')}")
-        return True
-    except Exception as e:
-        app.logger.error(f"[EMAIL-GMAIL] Error sending email via Gmail API to {recipient_email}:")
-        app.logger.error(f"[EMAIL-GMAIL] Error type: {type(e).__name__}")
-        app.logger.error(f"[EMAIL-GMAIL] Error message: {str(e)}", exc_info=True)
-        return False
+    """
+    ⚠️ DEPRECATED: This function is NO LONGER USED
+    All emails must be sent via Resend API only.
+    Keeping this for reference/future use if needed.
+    Gmail API requires service account setup and is slower than Resend.
+    """
+    app.logger.warning(f"[EMAIL-GMAIL] DEPRECATED: send_email_gmail_api() should not be called. Use send_email() instead.")
+    return False
 
 # Test database connection on startup
 @app.route('/api/test', methods=['GET'])
