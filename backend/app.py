@@ -157,6 +157,9 @@ SECURITY_RESTRICTED_END_HOUR = int(os.getenv('SECURITY_RESTRICTED_END_HOUR', '6'
 SECURITY_RISK_MEDIUM_THRESHOLD = int(os.getenv('SECURITY_RISK_MEDIUM_THRESHOLD', '35'))
 SECURITY_RISK_HIGH_THRESHOLD = int(os.getenv('SECURITY_RISK_HIGH_THRESHOLD', '70'))
 
+RUNTIME_INIT_LOCK = threading.Lock()
+RUNTIME_INIT_DONE = False
+
 LOGIN_MAX_ATTEMPTS = int(os.getenv('LOGIN_MAX_ATTEMPTS', '5'))
 LOGIN_LOCKOUT_MINUTES = int(os.getenv('LOGIN_LOCKOUT_MINUTES', '3'))
 LOGIN_TRACKING_WINDOW_MINUTES = int(os.getenv('LOGIN_TRACKING_WINDOW_MINUTES', '15'))
@@ -321,6 +324,53 @@ def log_event(level, event, **fields):
         **fields
     }
     app.logger.log(level, json.dumps(record, default=str))
+
+
+def initialize_runtime_services(start_agents=True):
+    """Initialize migrations, schema guards, occupancy sync, and monitor agents once per process."""
+    global RUNTIME_INIT_DONE
+    if RUNTIME_INIT_DONE:
+        return
+
+    with RUNTIME_INIT_LOCK:
+        if RUNTIME_INIT_DONE:
+            return
+
+        try:
+            apply_sql_migrations()
+            ensure_audit_log_table()
+            ensure_outpass_monitoring_columns()
+            ensure_holiday_mode_columns()
+            ensure_complaint_monitoring_columns()
+            ensure_leave_monitoring_columns()
+            ensure_security_monitoring_columns()
+
+            connection = get_db_connection()
+            if connection:
+                cursor = connection.cursor()
+                cursor.execute("""
+                    SELECT room_id, COUNT(*) as actual_count
+                    FROM students
+                    WHERE room_id IS NOT NULL
+                    GROUP BY room_id
+                """)
+                actual_counts = {row['room_id']: row['actual_count'] for row in cursor.fetchall()}
+                update_room_occupancy(actual_counts)
+                cursor.close()
+                connection.close()
+
+            if start_agents:
+                start_outpass_monitor_agent()
+                start_complaint_monitor_agent()
+                start_leave_monitor_agent()
+                start_security_monitor_agent()
+
+            RUNTIME_INIT_DONE = True
+            app.logger.info('Runtime services initialized successfully')
+
+        except Exception:
+            # Keep server available even if startup helpers fail; next request can retry init.
+            app.logger.exception('Runtime services initialization failed')
 
 
 def ensure_audit_log_table():
@@ -575,6 +625,9 @@ def require_role(*allowed_roles):
 @app.before_request
 def enforce_prefix_role_access():
     """Apply role checks for privileged route prefixes."""
+    # Gunicorn does not execute __main__; lazily bootstrap monitors/migrations on first request.
+    initialize_runtime_services(start_agents=True)
+
     if request.method == 'OPTIONS':
         return None
 
@@ -11250,35 +11303,8 @@ def update_mess_menu():
 if __name__ == '__main__':
     # Verify and prepare database (migrations, schema) on startup
     try:
-        apply_sql_migrations()
-        ensure_audit_log_table()
-        ensure_outpass_monitoring_columns()
-        ensure_holiday_mode_columns()
-        ensure_complaint_monitoring_columns()
-        ensure_leave_monitoring_columns()
-        ensure_security_monitoring_columns()
-
-        if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or not app.debug:
-            start_outpass_monitor_agent()
-            start_complaint_monitor_agent()
-            start_leave_monitor_agent()
-            start_security_monitor_agent()
-
-        connection = get_db_connection()
-        if connection:
-            cursor = connection.cursor()
-            
-            # Get actual counts
-            cursor.execute("""
-                SELECT room_id, COUNT(*) as actual_count
-                FROM students
-                WHERE room_id IS NOT NULL
-                GROUP BY room_id
-            """)
-            actual_counts = {row['room_id']: row['actual_count'] for row in cursor.fetchall()}
-            update_room_occupancy(actual_counts)
-            cursor.close()
-            connection.close()
+        start_agents = os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or not app.debug
+        initialize_runtime_services(start_agents=start_agents)
 
     except Exception:
         # Startup should not fail silently; log and continue
