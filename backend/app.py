@@ -175,6 +175,11 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
+def _safe_datetime(value, fallback):
+    """Return value if it is a datetime, otherwise fallback."""
+    return value if isinstance(value, datetime) else fallback
+
+
 def validate_room_assignment_constraints(cursor, student_id, room_id):
     """Validate that room assignment follows gender and block safety rules."""
     cursor.execute(
@@ -240,10 +245,12 @@ def validate_room_assignment_constraints(cursor, student_id, room_id):
 def _cleanup_login_attempts(now):
     """Drop stale login attempt records from memory."""
     stale_cutoff = now - timedelta(minutes=LOGIN_TRACKING_WINDOW_MINUTES)
-    stale_keys = [
-        key for key, value in LOGIN_ATTEMPT_STATE.items()
-        if value.get('last_attempt_at', now) < stale_cutoff and value.get('locked_until', now) < now
-    ]
+    stale_keys = []
+    for key, value in LOGIN_ATTEMPT_STATE.items():
+        last_attempt_at = _safe_datetime(value.get('last_attempt_at'), now)
+        locked_until = _safe_datetime(value.get('locked_until'), now)
+        if last_attempt_at < stale_cutoff and locked_until < now:
+            stale_keys.append(key)
     for key in stale_keys:
         LOGIN_ATTEMPT_STATE.pop(key, None)
 
@@ -257,6 +264,9 @@ def is_login_locked(identifier):
         if not state:
             return False, 0
         locked_until = state.get('locked_until')
+        if locked_until is not None and not isinstance(locked_until, datetime):
+            locked_until = None
+            state['locked_until'] = None
         if locked_until and locked_until > now:
             seconds_remaining = int((locked_until - now).total_seconds())
             return True, seconds_remaining
@@ -269,7 +279,8 @@ def record_failed_login(identifier):
     with LOGIN_ATTEMPT_LOCK:
         _cleanup_login_attempts(now)
         state = LOGIN_ATTEMPT_STATE.get(identifier)
-        if not state or (now - state.get('first_attempt_at', now)) > timedelta(minutes=LOGIN_TRACKING_WINDOW_MINUTES):
+        first_attempt_at = _safe_datetime(state.get('first_attempt_at'), now) if state else now
+        if not state or (now - first_attempt_at) > timedelta(minutes=LOGIN_TRACKING_WINDOW_MINUTES):
             state = {
                 'count': 0,
                 'first_attempt_at': now,
@@ -3249,6 +3260,16 @@ def login():
         return api_success(response_data, status_code=200)
 
     except Exception as e:
+        error_message = str(e)
+        if isinstance(e, TypeError) and "NoneType" in error_message and "datetime" in error_message:
+            # Safety net: if lockout state is unexpectedly malformed, avoid 500 and ask client to retry.
+            clear_failed_login(identifier)
+            log_event(logging.WARNING, 'login_datetime_state_error', identifier=identifier, error=error_message)
+            return api_error(
+                'AUTH_TEMPORARY_STATE_ERROR',
+                'Temporary login state issue detected. Please try again.',
+                400
+            )
         log_event(logging.ERROR, 'login_error', error=str(e))
         return api_error('AUTH_LOGIN_FAILED', 'An error occurred during login', 500)
 
