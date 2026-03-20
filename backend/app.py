@@ -10434,7 +10434,7 @@ def notify_parcel_collection(parcel_id):
         student_info = cursor.fetchone()
         
         if student_info:
-            # Send email notification
+            # Send email notification via Resend (primary) with fallback
             try:
                 subject = f"📦 Parcel Received - {student_info['name']}"
                 
@@ -10622,13 +10622,11 @@ def notify_parcel_collection(parcel_id):
                 </html>
                 """
                 
-                # Send via SMTP
-                if USE_SMTP:
-                    send_email_smtp(student_info['email'], subject, html_body)
-                else:
-                    send_email_gmail_api(student_info['email'], subject, html_body)
+                # Send email using the main function (Resend API with Fallback)
+                send_email(student_info['email'], subject, html_body)
+                app.logger.info(f"[PARCEL] Notification email sent to {student_info['email']} for parcel {parcel_id}")
             except Exception as email_error:
-                print(f"Error sending notification email: {str(email_error)}")
+                app.logger.error(f"[PARCEL] Error sending notification email to {student_info['email']}: {str(email_error)}")
                 # Don't fail the API call if email fails
         
         cursor.close()
@@ -10743,6 +10741,26 @@ def add_parcel():
         # Prepare tracking number - use None if empty (NULL in database, won't violate UNIQUE constraint)
         tracking_number = data.get('tracking_number') if data.get('tracking_number') else None
         
+        # Check for duplicate parcel (same student, date, and courier) to prevent duplicates
+        received_date = data.get('received_date') or date.today()
+        cursor.execute("""
+            SELECT id FROM parcels 
+            WHERE student_id = %s 
+            AND DATE(received_date) = %s 
+            AND courier_name = %s 
+            AND status = 'received'
+            LIMIT 1
+        """, (student['id'], received_date, data.get('courier_name')))
+        
+        duplicate_check = cursor.fetchone()
+        if duplicate_check:
+            cursor.close()
+            connection.close()
+            return jsonify({
+                'success': False, 
+                'message': f"This parcel appears to already exist. A parcel from {data.get('courier_name')} for this student is already logged today."
+            }), 400
+        
         # Insert new parcel
         cursor.execute("""
             INSERT INTO parcels 
@@ -10756,7 +10774,7 @@ def add_parcel():
             data.get('sender_name') or '',
             data.get('sender_contact') or '',
             data.get('parcel_type'),
-            data.get('received_date') or date.today(),
+            received_date,
             data.get('received_time') or datetime.now().time(),
             security_user_id,
             data.get('remarks') or ''

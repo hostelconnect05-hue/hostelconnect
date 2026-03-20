@@ -337,7 +337,7 @@ const SecurityParcels = () => {
               <button className="modal-close" onClick={() => setShowAddForm(false)}>×</button>
             </div>
             <div className="modal-body">
-              <form className="parcel-form-modal" onSubmit={handleAddParcel}>
+              <form className="parcel-form-modal" onSubmit={(e) => { e.preventDefault(); handleAddParcel(e); }}>
                 <div className="form-row">
                   <div className="form-group">
                     <label>Student Roll Number *</label>
@@ -437,8 +437,8 @@ const SecurityParcels = () => {
             </div>
             <div className="modal-footer">
               <button
+                type="submit"
                 className="btn-action primary"
-                onClick={handleAddParcel}
                 disabled={addingParcel}
               >
                 {addingParcel && <span className="btn-spinner" />}
