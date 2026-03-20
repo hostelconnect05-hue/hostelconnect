@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, g
 from flask_cors import CORS
-import pymysql
+import mysql.connector
+from mysql.connector import pooling
 from werkzeug.security import check_password_hash, generate_password_hash
 from datetime import datetime, date, time, timedelta
 from functools import wraps
@@ -105,23 +106,28 @@ DB_NAME = os.getenv('DB_NAME') or os.getenv('MYSQL_DATABASE')
 DB_PORT = int(os.getenv('DB_PORT') or os.getenv('MYSQL_PORT') or 3306)
 DB_SSL_ENABLED = os.getenv('DB_SSL', 'false').lower() in ('1', 'true', 'yes')
 
-DB_CONFIG = {
+dbconfig = {
     'host': DB_HOST,
     'user': DB_USER,
     'password': DB_PASSWORD,
     'database': DB_NAME,
     'port': DB_PORT,
     'charset': 'utf8mb4',
-    'cursorclass': pymysql.cursors.DictCursor,
 }
 
 if DB_SSL_ENABLED:
-    # Railway and some managed MySQL providers require SSL connections.
-    DB_CONFIG['ssl'] = {'ssl': {}}
+    # Allow managed MySQL providers to negotiate TLS.
+    dbconfig['ssl_disabled'] = False
 
 # Validate database environment variables
-if not all([DB_CONFIG['host'], DB_CONFIG['user'], DB_CONFIG['password'], DB_CONFIG['database']]):
+if not all([dbconfig['host'], dbconfig['user'], dbconfig['password'], dbconfig['database']]):
     raise Exception("Database environment variables not set properly")
+
+pool = pooling.MySQLConnectionPool(
+    pool_name='mypool',
+    pool_size=5,
+    **dbconfig
+)
 
 # Cloudinary Configuration
 init_cloudinary()
@@ -694,11 +700,30 @@ def ensure_role_staff_id(cursor, connection, user_id, role, existing_staff_id=No
     return generated_staff_id
 
 # Database connection helper
+class PooledConnection:
+    """Wrap pooled mysql.connector connection with dict cursor defaults."""
+
+    def __init__(self, raw_connection):
+        self._connection = raw_connection
+
+    def cursor(self, *args, **kwargs):
+        if 'dictionary' not in kwargs:
+            kwargs['dictionary'] = True
+        return self._connection.cursor(*args, **kwargs)
+
+    def close(self):
+        # For mysql.connector pooled connections, close() returns it to the pool.
+        self._connection.close()
+
+    def __getattr__(self, item):
+        return getattr(self._connection, item)
+
+
 def get_db_connection():
-    """Create and return a MySQL database connection"""
+    """Create and return a pooled MySQL database connection."""
     try:
-        connection = pymysql.connect(**DB_CONFIG)
-        return connection
+        connection = pool.get_connection()
+        return PooledConnection(connection)
     except Exception as err:
         app.logger.exception("Database connection error")
         return None
