@@ -4827,6 +4827,9 @@ def get_warden_students():
         """
         cursor.execute(query)
         students = cursor.fetchall()
+
+        # Ensure datetime/decimal values are JSON-safe for all clients.
+        students = [serialize_row(row) for row in students]
         
         cursor.close()
         connection.close()
@@ -6297,6 +6300,7 @@ def get_warden_technicians():
                 t.user_id,
                 u.name,
                 u.email,
+                u.status,
                 u.staff_id,
                 t.specialization,
                 t.phone,
@@ -6305,11 +6309,13 @@ def get_warden_technicians():
             FROM technicians t
             JOIN users u ON t.user_id = u.id
             LEFT JOIN complaints c ON c.assigned_technician_id = u.id
-            GROUP BY t.id, t.user_id, u.name, u.email, u.staff_id, t.specialization, t.phone, t.availability_status
+            GROUP BY t.id, t.user_id, u.name, u.email, u.status, u.staff_id, t.specialization, t.phone, t.availability_status
             ORDER BY u.name
         """
         cursor.execute(query)
         technicians = cursor.fetchall()
+
+        technicians = [serialize_row(row) for row in technicians]
 
         cursor.close()
         connection.close()
