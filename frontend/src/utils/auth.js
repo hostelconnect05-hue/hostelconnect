@@ -13,12 +13,8 @@ const api = axios.create({
 });
 
 const OFFLINE_DEMO_USERS = [
-  { identifier: '23R21A6675', password: 'sathwik', userId: 101, name: 'Demo Student', role: 'student', rollNumber: '23R21A6675' },
-  { identifier: 'student@hostel.edu', password: 'student123', userId: 102, name: 'Demo Student', role: 'student', rollNumber: '23R21A6675' },
-  { identifier: 'warden@hostel.edu', password: 'warden123', userId: 103, name: 'Demo Warden', role: 'warden', staffId: 'WRD001' },
-  { identifier: 'admin@hostel.edu', password: 'admin123', userId: 104, name: 'Demo Admin', role: 'admin', staffId: 'ADM001' },
-  { identifier: 'technician@hostel.edu', password: 'tech123', userId: 105, name: 'Demo Technician', role: 'technician', staffId: 'TECH001' },
-  { identifier: 'security@hostel.edu', password: 'security123', userId: 106, name: 'Demo Security', role: 'security', staffId: 'SEC001' }
+  // Removed: Demo login fallback disabled to prevent accidental demo login on invalid credentials
+  // All authentication must go through the backend
 ];
 
 const persistAuthUser = (loginData) => {
@@ -33,13 +29,15 @@ const persistAuthUser = (loginData) => {
   localStorage.setItem('isAuthenticated', 'true');
 };
 
-const getOfflineDemoUser = (email, password) => {
-  const normalizedEmail = String(email || '').trim().toLowerCase();
-  return OFFLINE_DEMO_USERS.find((candidate) => {
-    const candidateIdentifier = candidate.identifier.toLowerCase();
-    return candidateIdentifier === normalizedEmail && candidate.password === password;
-  });
-};
+// Removed: getOfflineDemoUser function - demo login fallback disabled
+// All authentication must now go through the backend
+// const getOfflineDemoUser = (email, password) => {
+//   const normalizedEmail = String(email || '').trim().toLowerCase();
+//   return OFFLINE_DEMO_USERS.find((candidate) => {
+//     const candidateIdentifier = candidate.identifier.toLowerCase();
+//     return candidateIdentifier === normalizedEmail && candidate.password === password;
+//   });
+// };
 
 const readStoredUser = () => {
   try {
@@ -102,20 +100,11 @@ export const login = async (email, password, userType = 'student') => {
         error: payload.error || null
       };
     } else if (error.request) {
-      // No response from server
-      const demoUser = getOfflineDemoUser(email, password);
-      if (demoUser) {
-        persistAuthUser(demoUser);
-        return {
-          success: true,
-          ...demoUser,
-          message: 'Logged in with offline demo mode (backend unavailable).'
-        };
-      }
-
+      // No response from server - backend is down
+      // Do NOT fall back to demo users, show error instead
       return {
         success: false,
-        message: 'Cannot connect to server. Please ensure the backend is running and reachable.'
+        message: 'Cannot connect to server. The backend is currently unavailable. Please try again later.'
       };
     } else {
       // Other errors
