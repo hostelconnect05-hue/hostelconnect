@@ -8304,7 +8304,7 @@ def update_user_status(user_id):
 def change_user_password(user_id):
     """Change user password (admin only)"""
     try:
-        data = request.get_json()
+        data = request.get_json() or {}
         new_password = data.get('password')
         
         if not new_password or len(new_password.strip()) == 0:
@@ -8326,6 +8326,7 @@ def change_user_password(user_id):
                 u.id,
                 u.name,
                 u.email,
+                u.role,
                 u.staff_id,
                 COALESCE(NULLIF(u.roll_number, ''), s.roll_number) AS roll_number
             FROM users u
@@ -8341,19 +8342,20 @@ def change_user_password(user_id):
             connection.close()
             return jsonify({'success': False, 'message': 'User not found'}), 404
 
-        # Enforce unique/non-null staff IDs for staff roles, including legacy rows.
-        try:
-            user['staff_id'] = ensure_role_staff_id(
-                cursor,
-                connection,
-                user_id,
-                user['role'],
-                user.get('staff_id')
-            )
-        except ValueError as staff_error:
-            cursor.close()
-            connection.close()
-            return jsonify({'success': False, 'message': str(staff_error)}), 409
+        # Enforce unique/non-null staff IDs only for staff roles, including legacy rows.
+        if user.get('role') in ('warden', 'technician', 'security'):
+            try:
+                user['staff_id'] = ensure_role_staff_id(
+                    cursor,
+                    connection,
+                    user_id,
+                    user['role'],
+                    user.get('staff_id')
+                )
+            except ValueError as staff_error:
+                cursor.close()
+                connection.close()
+                return jsonify({'success': False, 'message': str(staff_error)}), 409
         
         # Hash and update password
         hashed_password = generate_password_hash(new_password)
