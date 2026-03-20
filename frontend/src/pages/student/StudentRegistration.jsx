@@ -298,10 +298,6 @@ const StudentRegistration = () => {
 
       if (data.success) {
         setRegistrationSuccess(true);
-        // Reset form after successful submission
-        setTimeout(() => {
-          window.location.href = '/student/dashboard';
-        }, 2000);
       } else {
         alert(data.message || 'Registration failed. Please try again.');
       }
@@ -941,7 +937,7 @@ const StudentRegistration = () => {
                 <p>Status: <strong>Pending Verification</strong></p>
                 <p>A warden will review your application and notify you soon.</p>
                 <p style={{ marginTop: '10px', fontSize: '12px', color: '#666' }}>
-                  Redirecting to dashboard...
+                  You can stay on this page and track status from the Registration Status page.
                 </p>
               </div>
             )}
