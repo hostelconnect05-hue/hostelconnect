@@ -209,6 +209,7 @@ const SecurityOutpass = () => {
     const status = item?.status;
     switch(status?.toLowerCase()) {
       case 'approved': return 'approved';
+      case 'approved_otp': return 'approved';
       case 'exited': return 'out';
       case 'returned':
         return item?.is_late || Number(item?.late_minutes || 0) > 0 ? 'returned-late' : 'returned';
@@ -222,6 +223,7 @@ const SecurityOutpass = () => {
     const status = item?.status?.toLowerCase();
     switch(status) {
       case 'approved': return '✅ Approved';
+      case 'approved_otp': return '✅ Approved (OTP)';
       case 'exited': return '🚪 Out';
       case 'returned':
         return item?.is_late || Number(item?.late_minutes || 0) > 0
@@ -266,7 +268,7 @@ const SecurityOutpass = () => {
     if (outpass.actual_exit_time || outpass.status?.toLowerCase() === 'exited') {
       return 50;
     }
-    if (outpass.status?.toLowerCase() === 'approved') {
+    if (['approved', 'approved_otp'].includes(outpass.status?.toLowerCase())) {
       return 25;
     }
 
@@ -279,8 +281,11 @@ const SecurityOutpass = () => {
       item.roll_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.destination?.toLowerCase().includes(searchQuery.toLowerCase());
     
+    const itemStatus = item.status?.toLowerCase();
+    const normalizedFilter = statusFilter.toLowerCase();
     const matchesStatus = statusFilter === 'All' || 
-      item.status?.toLowerCase() === statusFilter.toLowerCase();
+      itemStatus === normalizedFilter ||
+      (normalizedFilter === 'approved' && itemStatus === 'approved_otp');
 
     let matchesDate = true;
     if (dateFilter !== 'All' && item.expected_return_time) {

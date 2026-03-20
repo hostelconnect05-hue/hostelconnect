@@ -437,8 +437,9 @@ const SecurityParcels = () => {
             </div>
             <div className="modal-footer">
               <button
-                type="submit"
+                type="button"
                 className="btn-action primary"
+                onClick={handleAddParcel}
                 disabled={addingParcel}
               >
                 {addingParcel && <span className="btn-spinner" />}

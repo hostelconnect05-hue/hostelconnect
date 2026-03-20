@@ -9963,13 +9963,14 @@ def get_approved_outpasses_for_security():
             LEFT JOIN rooms r ON s.room_id = r.id
             LEFT JOIN blocks b ON r.block_id = b.id
             LEFT JOIN users u2 ON o.approved_by = u2.id
-            WHERE o.status IN ('approved', 'exited', 'returned', 'overdue')
+            WHERE o.status IN ('approved', 'approved_otp', 'exited', 'returned', 'overdue')
             ORDER BY 
                 CASE o.status
                     WHEN 'exited' THEN 1
                     WHEN 'overdue' THEN 2
                     WHEN 'approved' THEN 3
-                    WHEN 'returned' THEN 4
+                    WHEN 'approved_otp' THEN 4
+                    WHEN 'returned' THEN 5
                 END,
                 o.out_date DESC,
                 o.out_time DESC
@@ -9983,7 +9984,7 @@ def get_approved_outpasses_for_security():
             outpass_data = serialize_row(outpass)
             
             # Real-time monitor state preview
-            if outpass['status'] in ['approved', 'exited', 'overdue']:
+            if outpass['status'] in ['approved', 'approved_otp', 'exited', 'overdue']:
                 expected_return = outpass['expected_return_time']
                 if expected_return:
                     from datetime import datetime

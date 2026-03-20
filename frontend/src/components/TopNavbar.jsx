@@ -11,6 +11,7 @@ const TopNavbar = ({ role }) => {
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const menuRef = useRef(null);
 
   const profile = useMemo(() => {
@@ -24,8 +25,14 @@ const TopNavbar = ({ role }) => {
   }, [user, role]);
 
   const handleSignOut = async () => {
-    await logout();
-    navigate('/login', { replace: true });
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
+    try {
+      await logout();
+      navigate('/login', { replace: true });
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
 
   useEffect(() => {
@@ -80,8 +87,8 @@ const TopNavbar = ({ role }) => {
           <span className={`top-navbar-chevron ${isPanelOpen ? 'open' : ''}`} aria-hidden="true">⌄</span>
         </button>
 
-        <button className="top-navbar-logout-inline" onClick={handleSignOut}>
-          Logout
+        <button className="top-navbar-logout-inline" onClick={handleSignOut} disabled={isLoggingOut}>
+          {isLoggingOut ? 'Logging out...' : 'Logout'}
         </button>
 
         {isPanelOpen && (
@@ -116,9 +123,9 @@ const TopNavbar = ({ role }) => {
               <span>Change Password</span>
             </button>
 
-            <button className="top-logout-btn" onClick={handleSignOut}>
+            <button className="top-logout-btn" onClick={handleSignOut} disabled={isLoggingOut}>
               <span className="top-action-icon">⎋</span>
-              <span>Sign Out</span>
+              <span>{isLoggingOut ? 'Signing Out...' : 'Sign Out'}</span>
             </button>
           </div>
         )}
