@@ -189,6 +189,16 @@ def _safe_datetime(value, fallback):
     return value if isinstance(value, datetime) else fallback
 
 
+def normalize_gender_value(value):
+    """Normalize gender values to male/female for consistent block matching."""
+    raw = str(value or '').strip().lower()
+    if raw in ('male', 'm'):
+        return 'male'
+    if raw in ('female', 'f'):
+        return 'female'
+    return ''
+
+
 def validate_room_assignment_constraints(cursor, student_id, room_id):
     """Validate that room assignment follows gender and block safety rules."""
     cursor.execute(
@@ -203,7 +213,7 @@ def validate_room_assignment_constraints(cursor, student_id, room_id):
     if not student:
         return False, 'Student not found for room assignment validation.'
 
-    student_gender = str(student.get('gender') or '').strip().lower()
+    student_gender = normalize_gender_value(student.get('gender'))
     if student_gender not in ('male', 'female'):
         return False, 'Student gender must be set to male or female before room assignment.'
 
@@ -220,7 +230,7 @@ def validate_room_assignment_constraints(cursor, student_id, room_id):
     if not room:
         return False, 'Requested room not found.'
 
-    block_gender = (room.get('block_gender') or '').strip().lower()
+    block_gender = normalize_gender_value(room.get('block_gender'))
     if block_gender not in ('male', 'female'):
         return False, f"Block {room.get('block_name', '')} is missing a valid gender configuration."
 
@@ -3738,7 +3748,7 @@ def submit_room_change_request():
             connection.close()
             return jsonify({'success': False, 'message': 'Student not found'}), 404
 
-        student_gender = str(student.get('gender') or '').strip().lower()
+        student_gender = normalize_gender_value(student.get('gender'))
         if student_gender not in ('male', 'female'):
             cursor.close()
             connection.close()
@@ -9367,7 +9377,7 @@ def approve_registration(student_id):
             key = str(floor_preference).strip().lower()
             return floor_map.get(key)
         
-        student_gender = str(student.get('gender') or '').strip().lower()
+        student_gender = normalize_gender_value(student.get('gender'))
         if student_gender not in ('male', 'female'):
             cursor.close()
             connection.close()
@@ -9613,7 +9623,7 @@ def warden_approve_registration(student_id):
             connection.close()
             return jsonify({'success': False, 'message': 'Student already has a room allocation. Approval cannot be processed again.'}), 409
 
-        student_gender = str(student.get('gender') or '').strip().lower()
+        student_gender = normalize_gender_value(student.get('gender'))
         if student_gender not in ('male', 'female'):
             cursor.close()
             connection.close()
@@ -11274,6 +11284,16 @@ def verify_room_occupancy():
         
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/warden/rooms/recalculate-occupancy', methods=['POST'])
+def warden_recalculate_room_occupancy():
+    """Warden wrapper for room occupancy recalculation."""
+    return recalculate_room_occupancy()
+
+@app.route('/api/warden/rooms/verify-occupancy', methods=['GET'])
+def warden_verify_room_occupancy():
+    """Warden wrapper for room occupancy verification."""
+    return verify_room_occupancy()
 
 # ========================================
 # MESS MENU MANAGEMENT

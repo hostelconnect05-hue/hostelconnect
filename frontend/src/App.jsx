@@ -26,6 +26,7 @@ import WardenComplaints from './pages/warden/Complaints';
 import Registrations from './pages/warden/Registrations';
 import WardenMess from './pages/warden/WardenMess';
 import Rooms from './pages/warden/Rooms';
+import WardenRoomUtilities from './pages/warden/WardenRoomUtilities';
 import RoomChangeRequests from './pages/warden/RoomChangeRequests';
 import Technicians from './pages/warden/Technicians';
 import WardenStudents from './pages/warden/WardenStudents';
@@ -121,6 +122,7 @@ function App() {
           <Route path="registrations" element={<Registrations />} />
           <Route path="mess" element={<WardenMess />} />
           <Route path="rooms" element={<Rooms />} />
+          <Route path="room-utilities" element={<WardenRoomUtilities />} />
           <Route path="room-change-requests" element={<RoomChangeRequests />} />
           <Route path="technicians" element={<Technicians />} />
           <Route path="students" element={<WardenStudents />} />

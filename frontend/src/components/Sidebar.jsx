@@ -141,6 +141,7 @@ const Sidebar = ({ role: propRole }) => {
         { path: '/warden/registrations', icon: '🧾', label: 'Registrations' },
         { path: '/warden/mess', icon: '🍽️', label: 'Mess Menu' },
         { path: '/warden/rooms', icon: '🛏️', label: 'Rooms' },
+        { path: '/warden/room-utilities', icon: '🔧', label: 'Room Utilities' },
         { path: '/warden/room-change-requests', icon: '🔄', label: 'Room Change Requests' },
         { path: '/warden/technicians', icon: '🔧', label: 'Technicians' },
         { path: '/warden/students', icon: '🎓', label: 'Students' },

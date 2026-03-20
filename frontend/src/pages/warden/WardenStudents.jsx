@@ -97,14 +97,13 @@ const WardenStudents = () => {
       const res = await fetch(endpoints.rooms(blockId), { headers });
       const data = await res.json();
       if (data.success && Array.isArray(data.data)) {
-        const currentRoomId = selectedStudent?.room_id ? Number(selectedStudent.room_id) : null;
-        const assignableRooms = data.data.filter((room) => {
-          const roomNum = Number(room.id);
+        const availableOnlyRooms = data.data.filter((room) => {
           const occupied = Number(room.occupied_count || 0);
           const capacity = Number(room.capacity || 0);
-          return roomNum === currentRoomId || occupied < capacity || room.status === 'available';
+          const status = String(room.status || '').trim().toLowerCase();
+          return occupied < capacity && status === 'available';
         });
-        setAvailableRooms(assignableRooms);
+        setAvailableRooms(availableOnlyRooms);
       }
     } catch (error) {
       console.error('Error fetching rooms:', error);
@@ -187,18 +186,21 @@ const WardenStudents = () => {
     return `${year} Year`;
   };
 
+  const normalizeGender = (value) => {
+    const raw = String(value || '').trim().toLowerCase();
+    if (!raw) return '';
+    if (raw === 'm' || raw.startsWith('male')) return 'male';
+    if (raw === 'f' || raw.startsWith('female')) return 'female';
+    return '';
+  };
+
   const getAllowedBlocksForStudent = (student) => {
-    const gender = String(student?.gender || '').trim().toLowerCase();
-    const currentBlockName = String(student?.block_name || '').trim().toLowerCase();
+    const gender = normalizeGender(student?.gender);
     if (gender !== 'male' && gender !== 'female') {
       return hostelBlocks;
     }
 
-    return hostelBlocks.filter((block) => {
-      const blockGender = String(block?.block_gender || '').trim().toLowerCase();
-      const blockName = String(block?.block_name || '').trim().toLowerCase();
-      return blockGender === gender || blockName === currentBlockName;
-    });
+    return hostelBlocks.filter((block) => normalizeGender(block?.block_gender) === gender);
   };
 
   // Helper function to show message in modal with auto-dismiss
@@ -261,14 +263,13 @@ const WardenStudents = () => {
       const res = await fetch(endpoints.rooms(blockId), { headers });
       const data = await res.json();
       if (data.success && Array.isArray(data.data)) {
-        const currentRoomNum = currentRoomId ? Number(currentRoomId) : null;
-        const assignableRooms = data.data.filter((room) => {
-          const roomNum = Number(room.id);
+        const availableOnlyRooms = data.data.filter((room) => {
           const occupied = Number(room.occupied_count || 0);
           const capacity = Number(room.capacity || 0);
-          return roomNum === currentRoomNum || occupied < capacity || room.status === 'available';
+          const status = String(room.status || '').trim().toLowerCase();
+          return occupied < capacity && status === 'available';
         });
-        setProfileAvailableRooms(assignableRooms);
+        setProfileAvailableRooms(availableOnlyRooms);
       }
     } catch (error) {
       console.error('Error fetching profile rooms:', error);
