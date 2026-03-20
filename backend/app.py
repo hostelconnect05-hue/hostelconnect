@@ -9,6 +9,7 @@ import json
 import logging
 import base64
 import smtplib
+from urllib.parse import urlparse
 import hashlib
 import hmac
 import secrets
@@ -2324,7 +2325,24 @@ def send_approval_email(student_email, student_name):
     try:
         subject = "🎉 Your HostelConnect Registration Has Been Approved!"
 
-        dashboard_url = (FRONTEND_URL.rstrip('/') + '/student/dashboard') if FRONTEND_URL else 'https://your-frontend-url/student/dashboard'
+        # Always construct login URL from the domain origin to avoid invalid deep links.
+        def build_login_url():
+            default_login_url = 'https://hostelconnect.site/login'
+            raw_frontend_url = (FRONTEND_URL or '').strip()
+            if not raw_frontend_url:
+                return default_login_url
+
+            try:
+                normalized = raw_frontend_url if '://' in raw_frontend_url else f"https://{raw_frontend_url}"
+                parsed = urlparse(normalized)
+                if not parsed.netloc:
+                    return default_login_url
+                scheme = parsed.scheme or 'https'
+                return f"{scheme}://{parsed.netloc}/login"
+            except Exception:
+                return default_login_url
+
+        login_url = build_login_url()
 
         html_body = f"""
         <html>
@@ -2358,7 +2376,7 @@ def send_approval_email(student_email, student_name):
                         
                         <h3>What's Next?</h3>
                         <ul>
-                            <li>Check your dashboard for room assignment details</li>
+                            <li>Log in to your account to view room assignment details</li>
                             <li>Review your hostel block and room allocation</li>
                             <li>Prepare for move-in as per hostel guidelines</li>
                             <li>Contact your warden for any queries</li>
@@ -2373,7 +2391,7 @@ def send_approval_email(student_email, student_name):
                             <li>🔧 Complaint & maintenance requests</li>
                         </ul>
                         
-                        <p><a href="{dashboard_url}" class="button">Go to Your Dashboard →</a></p>
+                        <p><a href="{login_url}" class="button">Go to Login Page →</a></p>
                         
                         <p>If you have any questions or need assistance, please contact your hostel warden or the HostelConnect support team.</p>
                         
