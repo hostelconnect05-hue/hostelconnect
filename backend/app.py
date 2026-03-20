@@ -54,7 +54,7 @@ USE_RESEND = os.getenv('EMAIL_USE_RESEND', 'true').lower() == 'true'
 # Resend Configuration (Primary - works on all cloud platforms)
 if USE_RESEND:
     RESEND_API_KEY = os.getenv('RESEND_API_KEY')
-    RESEND_FROM_EMAIL = os.getenv('RESEND_FROM_EMAIL', 'hostelconnect05@gmail.com')
+    RESEND_FROM_EMAIL = os.getenv('RESEND_FROM_EMAIL', 'noreply@hostelconnect.site')
     if RESEND_API_KEY:
         resend.api_key = RESEND_API_KEY
         app.logger.info(f"[EMAIL] Email mode: Resend API from {RESEND_FROM_EMAIL}")
@@ -2929,8 +2929,7 @@ def send_email_resend(recipient_email, subject, html_body):
     """Send email using Resend API"""
     try:
         app.logger.info(f"[EMAIL-RESEND] Sending email to {recipient_email}...")
-        # For testing/free tier, use Resend's test sender. For production, verify a domain and use your domain email.
-        sender_email = "delivery@resend.dev"  # Use test sender (works without domain verification)
+        sender_email = RESEND_FROM_EMAIL
         
         email = resend.Emails.send({
             "from": sender_email,
