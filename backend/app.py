@@ -8099,7 +8099,7 @@ def get_all_users():
         if role:
             query = """
                 SELECT u.id, u.name, u.email, u.role, u.status, u.created_at, u.staff_id,
-                    s.roll_number, s.college_name, s.branch, s.year, s.fee_status, s.registration_status,
+                    s.roll_number, s.college_name, s.branch, s.year, s.gender, s.fee_status, s.registration_status,
                     s.parent_name, s.parent_email, s.parent_phone,
                     COALESCE(s.phone, w.phone, sp.phone, t.phone) AS phone,
                     s.room_id, r.room_number, b.id AS block_id, b.block_name,
@@ -8131,7 +8131,7 @@ def get_all_users():
         else:
             query = """
                 SELECT u.id, u.name, u.email, u.role, u.status, u.created_at, u.staff_id,
-                    s.roll_number, s.college_name, s.branch, s.year, s.fee_status, s.registration_status,
+                    s.roll_number, s.college_name, s.branch, s.year, s.gender, s.fee_status, s.registration_status,
                     s.parent_name, s.parent_email, s.parent_phone,
                     COALESCE(s.phone, w.phone, sp.phone, t.phone) AS phone,
                     s.room_id, r.room_number, b.id AS block_id, b.block_name,

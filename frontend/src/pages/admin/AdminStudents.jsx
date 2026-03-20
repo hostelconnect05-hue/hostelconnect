@@ -60,7 +60,14 @@ const AdminStudents = () => {
       const res = await fetch(`${API_BASE_URL}/api/admin/rooms/${blockId}`);
       const data = await res.json();
       if (data.success && Array.isArray(data.data)) {
-        setAvailableRooms(data.data);
+        const currentRoomId = selectedStudent?.room_id ? Number(selectedStudent.room_id) : null;
+        const assignableRooms = data.data.filter((room) => {
+          const roomNum = Number(room.id);
+          const occupied = Number(room.occupied_count || 0);
+          const capacity = Number(room.capacity || 0);
+          return roomNum === currentRoomId || occupied < capacity || room.status === 'available';
+        });
+        setAvailableRooms(assignableRooms);
       }
     } catch (error) {
       console.error('Error fetching rooms:', error);
@@ -134,6 +141,20 @@ const AdminStudents = () => {
     if (!year) return 'N/A';
     if (year.includes('Year')) return year;
     return `${year} Year`;
+  };
+
+  const getAllowedBlocksForStudent = (student) => {
+    const gender = String(student?.gender || '').trim().toLowerCase();
+    const currentBlockName = String(student?.block_name || '').trim().toLowerCase();
+    if (gender !== 'male' && gender !== 'female') {
+      return hostelBlocks;
+    }
+
+    return hostelBlocks.filter((block) => {
+      const blockGender = String(block?.block_gender || '').trim().toLowerCase();
+      const blockName = String(block?.block_name || '').trim().toLowerCase();
+      return blockGender === gender || blockName === currentBlockName;
+    });
   };
 
   // Filter students
@@ -830,7 +851,7 @@ const AdminStudents = () => {
                       onChange={handleProfileAssignmentChange}
                     >
                       <option value="">Select Block</option>
-                      {hostelBlocks.map(block => (
+                      {getAllowedBlocksForStudent(selectedStudent).map(block => (
                         <option key={block.id} value={block.block_name}>
                           {block.block_name}
                         </option>
@@ -1028,7 +1049,7 @@ const AdminStudents = () => {
                     onChange={handleFormChange}
                   >
                     <option value="">Select Block (Optional)</option>
-                    {hostelBlocks.map(block => (
+                    {getAllowedBlocksForStudent(selectedStudent).map(block => (
                       <option key={block.id} value={block.block_name}>
                         {block.block_name}
                       </option>
