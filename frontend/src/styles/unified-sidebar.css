@@ -16,8 +16,12 @@
   box-shadow: 8px 0 26px rgba(15, 35, 74, 0.12);
   z-index: 1000;
   overflow: hidden;
+  overflow-x: hidden;
   transition: width 320ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 320ms ease, transform 320ms ease;
   transform: translateX(0);
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
 /* Mobile Hidden State */
@@ -25,8 +29,9 @@
   .unified-sidebar {
     width: 260px;
     transform: translateX(-100%);
-    transition: transform 0.3s ease;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 1300;
+    will-change: transform;
   }
   
   .unified-sidebar.mobile-open {
@@ -40,9 +45,22 @@
 /* Mobile backdrop overlay - created via JS in Sidebar.jsx */
 .sidebar-overlay {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: rgba(0, 0, 0, 0.4);
   z-index: 1250;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* Toggle button icon visibility per breakpoint */
@@ -161,6 +179,8 @@
   flex: 1;
   padding: 8px 10px 14px;
   overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 .sidebar-menu ul {
