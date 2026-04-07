@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, g
+from flask import Flask, request, jsonify, g, has_request_context
 from flask_cors import CORS
 import mysql.connector
 from mysql.connector import pooling
@@ -123,9 +123,13 @@ if DB_SSL_ENABLED:
 if not all([dbconfig['host'], dbconfig['user'], dbconfig['password'], dbconfig['database']]):
     raise Exception("Database environment variables not set properly")
 
+DB_POOL_NAME = os.getenv('DB_POOL_NAME', 'hostel_pool')
+DB_POOL_SIZE = max(1, int(os.getenv('DB_POOL_SIZE', '20')))
+
 pool = pooling.MySQLConnectionPool(
-    pool_name='mypool',
-    pool_size=5,
+    pool_name=DB_POOL_NAME,
+    pool_size=DB_POOL_SIZE,
+    pool_reset_session=True,
     **dbconfig
 )
 
@@ -710,11 +714,36 @@ def ensure_role_staff_id(cursor, connection, user_id, role, existing_staff_id=No
     return generated_staff_id
 
 # Database connection helper
+def _register_request_connection(connection):
+    """Track opened connections for per-request cleanup safety."""
+    if not has_request_context():
+        return
+    tracked_connections = getattr(g, '_db_connections', None)
+    if tracked_connections is None:
+        tracked_connections = []
+        g._db_connections = tracked_connections
+    tracked_connections.append(connection)
+
+
+def _unregister_request_connection(connection):
+    """Remove a connection from request tracking once it is closed."""
+    if not has_request_context():
+        return
+    tracked_connections = getattr(g, '_db_connections', None)
+    if not tracked_connections:
+        return
+    try:
+        tracked_connections.remove(connection)
+    except ValueError:
+        pass
+
+
 class PooledConnection:
     """Wrap pooled mysql.connector connection with dict cursor defaults."""
 
     def __init__(self, raw_connection):
         self._connection = raw_connection
+        self._closed = False
 
     def cursor(self, *args, **kwargs):
         if 'dictionary' not in kwargs:
@@ -723,20 +752,73 @@ class PooledConnection:
 
     def close(self):
         # For mysql.connector pooled connections, close() returns it to the pool.
-        self._connection.close()
+        if self._closed:
+            return
+        try:
+            self._connection.close()
+        finally:
+            self._closed = True
+            _unregister_request_connection(self)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+        return False
 
     def __getattr__(self, item):
         return getattr(self._connection, item)
 
 
 def get_db_connection():
-    """Create and return a pooled MySQL database connection."""
+    """Get a pooled MySQL connection with request-level leak protection."""
     try:
-        connection = pool.get_connection()
-        return PooledConnection(connection)
+        raw_connection = pool.get_connection()
+        if raw_connection is None:
+            raise RuntimeError('Connection pool returned no connection')
+        if not raw_connection.is_connected():
+            raw_connection.reconnect(attempts=2, delay=1)
+        pooled_connection = PooledConnection(raw_connection)
+        _register_request_connection(pooled_connection)
+        return pooled_connection
+    except mysql.connector.errors.PoolError:
+        app.logger.exception('Database connection pool exhausted')
+        return None
     except Exception as err:
         app.logger.exception("Database connection error")
         return None
+
+
+def close_db_resources(cursor=None, connection=None):
+    """Safely close cursor and pooled connection without leaking resources."""
+    if cursor is not None:
+        try:
+            cursor.close()
+        except Exception:
+            app.logger.debug('Ignoring cursor close failure', exc_info=True)
+
+    if connection is not None:
+        try:
+            connection.close()
+        except Exception:
+            app.logger.warning('Ignoring connection close failure', exc_info=True)
+
+
+@app.teardown_request
+def cleanup_db_connections(_exception=None):
+    """Force-close any request-scoped connections not explicitly closed in handlers."""
+    if not has_request_context():
+        return
+    tracked_connections = getattr(g, '_db_connections', None)
+    if not tracked_connections:
+        return
+    for connection in tracked_connections[:]:
+        try:
+            connection.close()
+        except Exception:
+            app.logger.warning('Failed to close tracked DB connection in teardown', exc_info=True)
+    g._db_connections = []
 
 
 def _is_benign_migration_error(error_message):
@@ -3213,6 +3295,9 @@ def login():
     Expected input: { "email": "user@example.com", "password": "password123" }
     Note: "email" can also be a roll number or staff ID
     """
+    connection = None
+    cursor = None
+    identifier = None
     try:
         # Get request data
         data = request.get_json()
@@ -3289,9 +3374,6 @@ def login():
         cursor.execute(query, (identifier, identifier, identifier, identifier))
         user = cursor.fetchone()
 
-        cursor.close()
-        connection.close()
-
         # Check if user exists
         if not user:
             remaining_attempts = record_failed_login(identifier)
@@ -3366,6 +3448,8 @@ def login():
             )
         log_event(logging.ERROR, 'login_error', error=str(e))
         return api_error('AUTH_LOGIN_FAILED', 'An error occurred during login', 500)
+    finally:
+        close_db_resources(cursor, connection)
 
 @app.route('/api/user/change-password', methods=['POST'])
 def change_password():
